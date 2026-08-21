@@ -92,7 +92,7 @@ function ReceiptBody({ receipt }: { receipt: PublicReceipt }) {
           The payment was recorded, but the board lock could not be applied. Rank was not corrupted.
         </p>
       ) : null}
-      <Link className="primary-button modal-primary" to="/">
+      <Link className="primary-button receipt-cta" to="/">
         See the board
       </Link>
     </>

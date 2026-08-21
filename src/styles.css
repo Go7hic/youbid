@@ -235,6 +235,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 46px;
   min-width: 88px;
   padding: 0 18px;
@@ -242,8 +245,10 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   border-radius: 999px;
   background: var(--primary);
   color: white;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 46px;
+  line-height: 1;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -602,6 +607,15 @@ footer a { color: var(--primary-dark); text-decoration: none; }
 .receipt-dl dt { color: var(--muted-foreground); }
 .receipt-dl dd { margin: 0; font-weight: 700; }
 
+.receipt-cta {
+  display: inline-flex;
+  height: auto;
+  min-height: 52px;
+  margin-top: 8px;
+  padding: 16px 28px;
+  font-size: 17px;
+}
+
 .rules-list {
   display: grid;
   gap: 10px;
@@ -724,6 +738,12 @@ footer a { color: var(--primary-dark); text-decoration: none; }
   .identity-field, .identity-field input, .primary-button {
     height: 46px;
     line-height: 46px;
+  }
+
+  .receipt-cta {
+    height: auto;
+    min-height: 52px;
+    line-height: 1;
   }
 
   .takeover-offer {
