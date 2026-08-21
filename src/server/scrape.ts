@@ -33,11 +33,13 @@ export function parseHtmlMetadata(html: string, baseUrl: string): ListingMetadat
   const description =
     attr(html, /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
     attr(html, /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i) ||
+    attr(html, /<meta[^>]+name=["']twitter:description["'][^>]+content=["']([^"']+)["']/i) ||
     attr(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
     attr(html, /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i)
   const image =
     attr(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
     attr(html, /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+    attr(html, /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
     attr(html, /<link[^>]+rel=["'](?:apple-touch-icon|icon|shortcut icon)["'][^>]+href=["']([^"']+)["']/i) ||
     attr(html, /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:apple-touch-icon|icon|shortcut icon)["']/i)
   return sanitizeListingMetadata({
@@ -45,6 +47,16 @@ export function parseHtmlMetadata(html: string, baseUrl: string): ListingMetadat
     description: decode(description),
     imageUrl: absolutize(image, baseUrl),
   })
+}
+
+export function parseXProfileTitle(rawTitle: string, handle: string): string {
+  let title = rawTitle.trim()
+  title = title.replace(/\s*[|/]\s*X\s*$/i, '')
+  title = title.replace(new RegExp(`\\s*\\(@${handle}\\)\\s*$`, 'i'), '')
+  if (!title || title.toLowerCase() === `@${handle.toLowerCase()}`) {
+    return ''
+  }
+  return title
 }
 
 export async function scrapePublicUrl(
@@ -61,19 +73,45 @@ export async function scrapePublicUrl(
     return emptyMetadata()
   }
 
+  const first = await scrapeOnce(parsed, fetchImpl)
+  if (first.title || first.description) return first
+
+  const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
+  if (host === 'x.com' || host === 'twitter.com') {
+    const fallback = new URL(parsed.toString())
+    fallback.hostname = host === 'x.com' ? 'twitter.com' : 'x.com'
+    return scrapeOnce(fallback, fetchImpl)
+  }
+  return first
+}
+
+async function scrapeOnce(parsed: URL, fetchImpl: typeof fetch): Promise<ListingMetadata> {
   try {
     const response = await fetchImpl(parsed.toString(), {
       method: 'GET',
       redirect: 'follow',
-      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'YoubidBot/1.0' },
+      headers: {
+        accept: 'text/html,application/xhtml+xml',
+        'user-agent': 'Mozilla/5.0 (compatible; Youbid/1.0; +https://youbid.lol)',
+      },
       signal: AbortSignal.timeout(FETCH_MS),
     })
-    const finalHost = new URL(response.url).hostname
+    const finalUrl = response.url || parsed.toString()
+    const finalHost = new URL(finalUrl).hostname.replace(/^www\./, '')
     if (isBlockedFetchHost(finalHost) || !response.ok) return emptyMetadata()
     const contentType = response.headers.get('content-type') ?? ''
     if (!contentType.includes('html') && !contentType.includes('text/')) return emptyMetadata()
     const html = await readLimited(response)
-    return parseHtmlMetadata(html, response.url || parsed.toString())
+    const metadata = parseHtmlMetadata(html, finalUrl)
+    if (finalHost === 'x.com' || finalHost === 'twitter.com') {
+      const handle = parsed.pathname.split('/').filter(Boolean)[0]?.replace(/^@/, '') ?? ''
+      return sanitizeListingMetadata({
+        title: parseXProfileTitle(metadata.title, handle),
+        description: metadata.description,
+        imageUrl: metadata.imageUrl,
+      })
+    }
+    return metadata
   } catch {
     return emptyMetadata()
   }

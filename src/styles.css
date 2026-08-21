@@ -155,8 +155,16 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   line-height: 1.55;
 }
 
-.bid-form-stack { display: grid; gap: 12px; width: 100%; }
-.bid-form { display: flex; align-items: stretch; gap: 10px; width: 100%; }
+.bid-composer-wrap { display: grid; gap: 12px; width: min(640px, 100%); margin: 0 auto; }
+.bid-composer {
+  display: grid;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-radius: 999px;
+  background: #fff;
+  isolation: isolate;
+}
+.bid-form { display: flex; align-items: center; gap: 10px; width: 100%; }
 .listing-meta { display: grid; gap: 10px; text-align: left; }
 .listing-meta label { display: grid; gap: 5px; }
 .listing-meta span { color: #7c756f; font-size: 12px; font-weight: 650; }
@@ -171,17 +179,24 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   resize: vertical;
 }
 .listing-meta textarea { min-height: 68px; }
-.identity-field { position: relative; display: flex; flex: 1; min-width: 0; }
+.identity-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 46px;
+}
 
 .identity-field input {
   width: 100%;
   height: 46px;
-  padding: 0 18px 0 43px;
+  padding: 0 18px 0 42px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
+  background: #fff;
   color: var(--foreground);
-  box-shadow: inset 0 1px 2px rgba(47, 40, 34, 0.02);
+  line-height: 46px;
 }
 
 .identity-field input::placeholder { color: #89837d; }
@@ -190,37 +205,35 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .input-prefix {
   position: absolute;
   z-index: 1;
-  left: 17px;
+  left: 16px;
   top: 50%;
   display: grid;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   place-items: center;
   transform: translateY(-50%);
-  border: 1px solid #aaa39d;
-  border-radius: 50%;
-  color: #827b75;
-  font-size: 11px;
-  font-weight: 700;
+  color: #8a847e;
+  pointer-events: none;
 }
 
 .primary-button {
+  height: 46px;
   min-width: 88px;
+  padding: 0 18px;
   border: 0;
   border-radius: 999px;
   background: var(--primary);
   color: white;
   font-weight: 700;
+  line-height: 46px;
   cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
 }
 
 .primary-button:not(:disabled):hover {
   background: var(--primary-dark);
-  transform: translateY(-1px);
 }
 
-.identity-help { margin: 10px 0 0; color: #7c756f; font-size: 12px; }
+.identity-help { margin: 0; color: #7c756f; font-size: 12px; text-align: center; }
 .field-error { min-height: 17px; margin: 4px 0 0; color: #a83c2b; font-size: 12px; }
 .field-error:empty { display: none; }
 
@@ -688,9 +701,12 @@ footer a { color: var(--primary-dark); text-decoration: none; }
   }
 
   .bid-explainer { margin-top: 14px; font-size: 14px; }
+  .bid-composer { padding: 16px 14px 14px; border-radius: 28px; }
   .bid-form { flex-direction: column; gap: 8px; }
-  .identity-field input { height: 45px; }
-  .primary-button { min-height: 42px; }
+  .identity-field, .identity-field input, .primary-button {
+    height: 46px;
+    line-height: 46px;
+  }
 
   .takeover-offer {
     flex-direction: column;
