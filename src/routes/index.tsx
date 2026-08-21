@@ -223,7 +223,10 @@ function Home() {
       <SiteHeader visitorsOnline={data.visitorsOnline} visitorsLastHour={data.visitorsLastHour} />
 
       <section className="intro" id="top">
-        <p className="tagline">you bid, you get</p>
+        <p className="tagline">
+          No ads, no API keys, no revenue sharing. Just bid past your competition to get to
+          the top. <strong>Will you take #1 when Youbid goes viral?</strong>
+        </p>
 
         <section className="bid-panel" ref={bidFormRef} aria-labelledby="bid-heading">
           <div className="bid-title-row">

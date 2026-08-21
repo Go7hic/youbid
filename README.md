@@ -2,8 +2,6 @@
 
 # Youbid
 
-you bid, you get.
-
 Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a whole-dollar bid, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by successfully paid principal. Creating checkout never changes the board. Only a verified paid webhook does.
 
 ## What you get
