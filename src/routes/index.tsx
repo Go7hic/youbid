@@ -73,8 +73,9 @@ function Home() {
     listingDescription.trim() !== '' &&
     amountCents >= MINIMUM_BID_CENTS &&
     !busy
-  const showMetadataFallback =
-    normalizedIdentity.ok &&
+  const showListingMeta = normalizedIdentity.ok
+  const resolveFailed =
+    showListingMeta &&
     resolvedKey === normalizedIdentity.identity.canonicalKey &&
     !resolving &&
     (!listingTitle.trim() || !listingDescription.trim())
@@ -122,6 +123,8 @@ function Home() {
       setListingTitle((current) => current || payload.metadata?.title || '')
       setListingDescription((current) => current || payload.metadata?.description || '')
       setListingImageUrl((current) => current || payload.metadata?.imageUrl || '')
+    } catch {
+      if (seq === resolveSeq.current) setResolvedKey(result.identity.canonicalKey)
     } finally {
       if (seq === resolveSeq.current) setResolving(false)
     }
@@ -285,14 +288,27 @@ function Home() {
                   ? 'Paid bids open after Stripe is configured. The live board shows verified payments only.'
                   : resolving
                     ? 'Reading listing details…'
-                    : 'Already on the list? Enter the same URL or @handle and up your bid to get back to the top.'}
+                    : resolveFailed
+                      ? 'Could not load this profile. Add a title and description.'
+                      : 'Already on the list? Enter the same URL or @handle and up your bid to get back to the top.'}
               </p>
             </div>
             {data.checkout.turnstileSiteKey ? (
               <div className="cf-turnstile" data-sitekey={data.checkout.turnstileSiteKey} />
             ) : null}
-            {showMetadataFallback ? (
+            {showListingMeta ? (
               <div className="listing-meta">
+                {listingImageUrl || listingTitle ? (
+                  <div className="resolved-identity">
+                    {listingImageUrl ? (
+                      <img src={listingImageUrl} alt="" width="40" height="40" />
+                    ) : null}
+                    <div>
+                      <strong>{listingTitle || (normalizedIdentity.ok ? normalizedIdentity.identity.display : '')}</strong>
+                      {listingDescription ? <p>{listingDescription}</p> : null}
+                    </div>
+                  </div>
+                ) : null}
                 <label>
                   <span>Title</span>
                   <input

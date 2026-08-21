@@ -51,7 +51,7 @@ export function parseHtmlMetadata(html: string, baseUrl: string): ListingMetadat
 
 export function parseXProfileTitle(rawTitle: string, handle: string): string {
   let title = rawTitle.trim()
-  title = title.replace(/\s*[|/]\s*X\s*$/i, '')
+  title = title.replace(/\s*(?:[|/]\s*X|on X)\s*$/i, '')
   title = title.replace(new RegExp(`\\s*\\(@${handle}\\)\\s*$`, 'i'), '')
   if (!title || title.toLowerCase() === `@${handle.toLowerCase()}`) {
     return ''

@@ -24,6 +24,7 @@ test('scrape failure path is empty metadata', () => {
 
 test('X profile og title becomes a display name', () => {
   assert.equal(parseXProfileTitle('Youbid (@youbid) / X', 'youbid'), 'Youbid')
+  assert.equal(parseXProfileTitle('YiChu (@Go7hic) on X', 'go7hic'), 'YiChu')
   const parsed = parseHtmlMetadata(
     `<html><head>
       <meta property="og:title" content="Youbid (@youbid) / X" />

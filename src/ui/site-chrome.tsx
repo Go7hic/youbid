@@ -29,6 +29,9 @@ export function SiteFooter() {
       <nav className="footer-nav">
         <Link to="/rules">Rules</Link>
         <Link to="/stats">Stats</Link>
+        <a href="https://github.com/Go7hic/youbid" target="_blank" rel="noreferrer">
+          GitHub
+        </a>
         <a href="https://youbid.lol">youbid.lol</a>
       </nav>
     </footer>
