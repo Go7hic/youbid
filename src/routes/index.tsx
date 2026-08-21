@@ -382,7 +382,7 @@ function Home() {
         {page === 1 && activeTakeover ? (
           <article className="takeover-live">
             <span className="takeover-kicker">First-page takeover · paid</span>
-            <a href={activeTakeover.href} rel="sponsored">
+            <a href={activeTakeover.href} target="_blank" rel="sponsored noopener noreferrer">
               {activeTakeover.display}
             </a>
             <p>
@@ -421,7 +421,7 @@ function Home() {
                   </button>
                   {listing.image ? <img src={listing.image} alt="" width="56" height="56" loading="lazy" /> : null}
                   <div className="listing-copy">
-                    <a href={listing.href} target={listing.href.startsWith('/go/') ? undefined : '_blank'} rel="sponsored noopener noreferrer">
+                    <a href={listing.href} target="_blank" rel="sponsored noopener noreferrer">
                       {listing.domain}
                     </a>
                     <p>{listing.description}</p>
