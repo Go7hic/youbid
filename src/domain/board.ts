@@ -1,5 +1,6 @@
 import type { Listing } from '../data/listings'
 import { listingStanding } from './decay.ts'
+import { faviconUrlForTarget } from './favicon.ts'
 import { type ListingRecord, type TakeoverRecord } from './records.ts'
 
 export const BOARD_PAGE_SIZE = 50
@@ -70,7 +71,7 @@ export function toPublicListing(
     domain: listing.displayName,
     description: listing.description || 'Paid and verified on Youbid.',
     href: `/go/${listing.id}`,
-    image: listing.imageUrl || faviconForUrl(listing.targetUrl),
+    image: listing.imageUrl || faviconUrlForTarget(listing.targetUrl),
     amountCents: listingStanding(listing, nowIso),
     settledAt: listing.settledAt ?? nowIso,
     dropsOffAt: listing.dropsOffAt ?? listing.settledAt ?? nowIso,
@@ -93,11 +94,3 @@ export function publicTakeover(
   }
 }
 
-function faviconForUrl(targetUrl: string): string | null {
-  try {
-    const hostname = new URL(targetUrl).hostname
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`
-  } catch {
-    return null
-  }
-}

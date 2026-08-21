@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Listing } from '../data/listings.ts'
 import { boardPage } from '../domain/board.ts'
 import { decayedBalanceFromDropOff } from '../domain/decay.ts'
+import { faviconUrlForTarget } from '../domain/favicon.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
 import {
   BID_STEP_CENTS,
@@ -93,6 +94,8 @@ function Home() {
     amountCents >= MINIMUM_BID_CENTS &&
     !busy
   const showListingMeta = normalizedIdentity.ok
+  const identityLogo = normalizedIdentity.ok ? faviconUrlForTarget(normalizedIdentity.identity.targetUrl) : null
+  const previewLogo = listingImageUrl || identityLogo
   const resolveFailed =
     showListingMeta &&
     resolvedKey === normalizedIdentity.identity.canonicalKey &&
@@ -294,10 +297,14 @@ function Home() {
               <div className="bid-form">
                 <label className="identity-field">
                   <span className="input-prefix" aria-hidden="true">
-                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-                      <circle cx="8" cy="8" r="6.2" />
-                      <path d="M2 8h12M8 2c1.8 1.8 2.7 3.8 2.7 6S9.8 12.2 8 14C6.2 12.2 5.3 10.2 5.3 8S6.2 3.8 8 2Z" />
-                    </svg>
+                    {identityLogo ? (
+                      <img src={identityLogo} alt="" width="16" height="16" />
+                    ) : (
+                      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+                        <circle cx="8" cy="8" r="6.2" />
+                        <path d="M2 8h12M8 2c1.8 1.8 2.7 3.8 2.7 6S9.8 12.2 8 14C6.2 12.2 5.3 10.2 5.3 8S6.2 3.8 8 2Z" />
+                      </svg>
+                    )}
                   </span>
                   <span className="sr-only">Product URL or social handle</span>
                   <input
@@ -329,10 +336,10 @@ function Home() {
             ) : null}
             {showListingMeta ? (
               <div className="listing-meta">
-                {listingImageUrl || listingTitle ? (
+                {previewLogo || listingTitle ? (
                   <div className="resolved-identity">
-                    {listingImageUrl ? (
-                      <img src={listingImageUrl} alt="" width="40" height="40" />
+                    {previewLogo ? (
+                      <img src={previewLogo} alt="" width="40" height="40" />
                     ) : null}
                     <div>
                       <strong>{listingTitle || (normalizedIdentity.ok ? normalizedIdentity.identity.display : '')}</strong>

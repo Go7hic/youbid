@@ -22,6 +22,18 @@ test('scrape failure path is empty metadata', () => {
   assert.deepEqual(parsed, { title: '', description: '', imageUrl: null })
 })
 
+test('a product page uses favicon.so instead of the og image', async () => {
+  const html = `<html><head>
+    <title>Cleer</title>
+    <meta property="og:image" content="https://cdn.example.com/hero.png" />
+  </head></html>`
+  const metadata = await scrapePublicUrl('https://cleer.deepzero.ai/', async () =>
+    new Response(html, { headers: { 'content-type': 'text/html' }, status: 200 }),
+  )
+  assert.equal(metadata.title, 'Cleer')
+  assert.equal(metadata.imageUrl, 'https://favicon.so/cleer.deepzero.ai')
+})
+
 test('X profile og title becomes a display name', () => {
   assert.equal(parseXProfileTitle('Youbid (@youbid) / X', 'youbid'), 'Youbid')
   assert.equal(parseXProfileTitle('YiChu (@Go7hic) on X', 'go7hic'), 'YiChu')

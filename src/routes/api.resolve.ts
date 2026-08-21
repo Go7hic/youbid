@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { faviconUrlForTarget } from '../domain/favicon.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
 import { completeListingMetadata } from '../domain/listing-metadata.ts'
 import { allowResolve } from '../server/env.ts'
@@ -33,7 +34,11 @@ export const Route = createFileRoute('/api/resolve')({
         }
 
         const handle = identity.identity.canonicalKey.startsWith('x:')
-        const metadata = await scrapePublicUrl(identity.identity.targetUrl)
+        const scraped = await scrapePublicUrl(identity.identity.targetUrl)
+        const metadata = {
+          ...scraped,
+          imageUrl: handle ? scraped.imageUrl : faviconUrlForTarget(identity.identity.targetUrl),
+        }
         const complete = completeListingMetadata(metadata, null)
         return Response.json({
           identity: identity.identity,

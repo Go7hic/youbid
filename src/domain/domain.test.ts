@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { boardPage } from './board.ts'
 import { settleVerifiedPaidEvent } from './checkout.ts'
+import { faviconUrlForTarget } from './favicon.ts'
 import { normalizeIdentity } from './identity.ts'
 import {
   DAILY_DECAY,
@@ -122,6 +123,12 @@ test('decayed balance falls and drop-off order matches live balance order', () =
   assert.ok(next > now)
   assert.equal(DAILY_DECAY, 0.97)
   assert.equal(DECAY_FLOOR_CENTS, 200)
+})
+
+test('a public URL uses favicon.so as the listing logo, not an og image host', () => {
+  assert.equal(faviconUrlForTarget('https://cleer.deepzero.ai/'), 'https://favicon.so/cleer.deepzero.ai')
+  assert.equal(faviconUrlForTarget('https://www.example.com/app'), 'https://favicon.so/example.com')
+  assert.equal(faviconUrlForTarget('not-a-url'), null)
 })
 
 test('identity normalization accepts public URLs and handles, rejects invite and script URLs', () => {

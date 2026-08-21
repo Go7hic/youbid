@@ -202,7 +202,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f6f3ef;
   flex: 0 0 auto;
 }
 .resolved-identity strong { display: block; font-size: 14px; }
@@ -255,6 +256,13 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   transform: translateY(-50%);
   color: #8a847e;
   pointer-events: none;
+}
+
+.input-prefix img {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
 }
 
 .primary-button {

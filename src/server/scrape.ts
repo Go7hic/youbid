@@ -1,3 +1,4 @@
+import { faviconUrlForTarget } from '../domain/favicon.ts'
 import type { ListingMetadata } from '../domain/listing-metadata.ts'
 import { sanitizeListingMetadata } from '../domain/listing-metadata.ts'
 
@@ -111,7 +112,11 @@ async function scrapeOnce(parsed: URL, fetchImpl: typeof fetch): Promise<Listing
         imageUrl: metadata.imageUrl,
       })
     }
-    return metadata
+    return sanitizeListingMetadata({
+      title: metadata.title,
+      description: metadata.description,
+      imageUrl: faviconUrlForTarget(finalUrl),
+    })
   } catch {
     return emptyMetadata()
   }
