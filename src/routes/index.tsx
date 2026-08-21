@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader } from '@tanstack/react-start/server'
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useMemo, useRef, useState } from 'react'
 
 import type { Listing } from '../data/listings.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
@@ -53,9 +53,7 @@ function Home() {
   const [listingDescription, setListingDescription] = useState('')
   const [listingImageUrl, setListingImageUrl] = useState('')
   const [resolving, setResolving] = useState(false)
-  const [resolvedKey, setResolvedKey] = useState('')
   const lastCanonical = useRef('')
-  const resolveSeq = useRef(0)
   const [takeover, setTakeover] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [pendingIntentId, setPendingIntentId] = useState<string | null>(null)
@@ -73,11 +71,6 @@ function Home() {
     listingDescription.trim() !== '' &&
     amountCents >= MINIMUM_BID_CENTS &&
     !busy
-  const showMetadataFallback =
-    normalizedIdentity.ok &&
-    resolvedKey === normalizedIdentity.identity.canonicalKey &&
-    !resolving &&
-    (!listingTitle.trim() || !listingDescription.trim())
 
   function applyIdentityInput(value: string) {
     setIdentityInput(value)
@@ -86,26 +79,15 @@ function Home() {
     const key = next.ok ? next.identity.canonicalKey : ''
     if (key !== lastCanonical.current) {
       lastCanonical.current = key
-      setResolvedKey('')
       setListingTitle('')
       setListingDescription('')
       setListingImageUrl('')
     }
   }
 
-  useEffect(() => {
-    const result = normalizeIdentity(identityInput)
-    if (!result.ok) return
-    const timer = window.setTimeout(() => {
-      void resolveIdentityFields(identityInput)
-    }, 450)
-    return () => window.clearTimeout(timer)
-  }, [identityInput])
-
   async function resolveIdentityFields(value: string) {
     const result = normalizeIdentity(value)
     if (!result.ok) return
-    const seq = ++resolveSeq.current
     setResolving(true)
     try {
       const response = await fetch('/api/resolve', {
@@ -113,17 +95,15 @@ function Home() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ identity: value }),
       })
-      if (seq !== resolveSeq.current) return
       const payload = (await response.json()) as {
         metadata?: { title?: string; description?: string; imageUrl?: string | null }
       }
-      setResolvedKey(result.identity.canonicalKey)
       if (!response.ok || !payload.metadata) return
       setListingTitle((current) => current || payload.metadata?.title || '')
       setListingDescription((current) => current || payload.metadata?.description || '')
       setListingImageUrl((current) => current || payload.metadata?.imageUrl || '')
     } finally {
-      if (seq === resolveSeq.current) setResolving(false)
+      setResolving(false)
     }
   }
   const activeTakeover = data.takeover
@@ -252,43 +232,29 @@ function Home() {
               : 'Your amount decides the rank. Paying less than the #1 price still puts you on the board wherever that bid can take you.'}
           </p>
 
-          <form className="bid-composer-wrap" onSubmit={openCheckout} noValidate>
-            <div className="bid-composer">
-              <div className="bid-form">
-                <label className="identity-field">
-                  <span className="input-prefix" aria-hidden="true">
-                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-                      <circle cx="8" cy="8" r="6.2" />
-                      <path d="M2 8h12M8 2c1.8 1.8 2.7 3.8 2.7 6S9.8 12.2 8 14C6.2 12.2 5.3 10.2 5.3 8S6.2 3.8 8 2Z" />
-                    </svg>
-                  </span>
-                  <span className="sr-only">Product URL or social handle</span>
-                  <input
-                    value={identityInput}
-                    onChange={(event) => applyIdentityInput(event.target.value)}
-                    onBlur={(event) => void resolveIdentityFields(event.target.value)}
-                    placeholder="Your product URL or @handle"
-                    aria-invalid={Boolean(identityError)}
-                    aria-describedby="identity-help identity-error"
-                    autoComplete="url"
-                  />
-                </label>
-                <button className="primary-button" type="submit" disabled={!canCheckout}>
-                  {busy ? 'Working…' : takeover ? 'Take over' : 'Bid'}
-                </button>
-              </div>
-              <p className="identity-help" id="identity-help">
-                {data.checkout.mode === 'unavailable'
-                  ? 'Paid bids open after Stripe is configured. The live board shows verified payments only.'
-                  : resolving
-                    ? 'Reading listing details…'
-                    : 'Already on the list? Enter the same URL or @handle and up your bid to get back to the top.'}
-              </p>
+          <form className="bid-form-stack" onSubmit={openCheckout} noValidate>
+            <div className="bid-form">
+              <label className="identity-field">
+                <span className="input-prefix" aria-hidden="true">@</span>
+                <span className="sr-only">Product URL or social handle</span>
+                <input
+                  value={identityInput}
+                  onChange={(event) => applyIdentityInput(event.target.value)}
+                  onBlur={(event) => void resolveIdentityFields(event.target.value)}
+                  placeholder="Your product URL or @handle"
+                  aria-invalid={Boolean(identityError)}
+                  aria-describedby="identity-help identity-error"
+                  autoComplete="url"
+                />
+              </label>
+              {data.checkout.turnstileSiteKey ? (
+                <div className="cf-turnstile" data-sitekey={data.checkout.turnstileSiteKey} />
+              ) : null}
+              <button className="primary-button" type="submit" disabled={!canCheckout}>
+                {busy ? 'Working…' : takeover ? 'Take over' : 'Bid'}
+              </button>
             </div>
-            {data.checkout.turnstileSiteKey ? (
-              <div className="cf-turnstile" data-sitekey={data.checkout.turnstileSiteKey} />
-            ) : null}
-            {showMetadataFallback ? (
+            {normalizedIdentity.ok ? (
               <div className="listing-meta">
                 <label>
                   <span>Title</span>
@@ -320,10 +286,18 @@ function Home() {
                     inputMode="url"
                   />
                 </label>
+                {resolving ? <p className="identity-help">Reading listing details…</p> : null}
               </div>
             ) : null}
-            <p className="field-error" id="identity-error" role="alert">{identityError}</p>
           </form>
+          <p className="field-error" id="identity-error" role="alert">{identityError}</p>
+          <p className="identity-help" id="identity-help">
+            {data.checkout.mode === 'unavailable'
+              ? 'Paid bids open after Stripe is configured. The live board shows verified payments only.'
+              : normalizedIdentity.ok && normalizedIdentity.identity.canonicalKey.startsWith('x:')
+                ? 'We parse the X handle. Add a title and description so the board is more than @name.'
+                : 'We’ll try to read the page. If title or description is missing, fill them in before you pay.'}
+          </p>
         </section>
 
         <section className="takeover-offer" aria-label="Leaderboard takeover">
