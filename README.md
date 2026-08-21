@@ -4,6 +4,8 @@
 
 Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a whole-dollar bid, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by successfully paid principal. Creating checkout never changes the board. Only a verified paid webhook does.
 
+The product idea and board layout take cues from [outbid.lol](http://outbid.lol/). Youbid is a separate implementation.
+
 ## What you get
 
 - A public board with live projected rank and hover/focus **claim this rank** pills
