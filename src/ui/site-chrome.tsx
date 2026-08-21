@@ -6,10 +6,18 @@ export function SiteHeader(input: {
 }) {
   return (
     <header className="site-header">
-      <Link className="wordmark" to="/" aria-label="Youbid home">
-        <img className="wordmark-logo" src="/logo.avif" alt="" width="50" height="50" />
-        youbid<span>.lol</span>
-      </Link>
+      <div className="site-header-bar">
+        <Link className="wordmark" to="/" aria-label="Youbid home">
+          <img className="wordmark-logo" src="/logo.avif" alt="" width="50" height="50" />
+          youbid<span>.lol</span>
+        </Link>
+        <nav className="header-nav" aria-label="Site">
+          <Link to="/rules">Rules</Link>
+          <a href="https://github.com/Go7hic/youbid" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        </nav>
+      </div>
       <div className="live-pill" aria-live="polite">
         <span className="live-dot" />
         <strong>{input.visitorsOnline.toLocaleString()} visitors online</strong>
@@ -27,11 +35,7 @@ export function SiteFooter() {
     <footer>
       <p>Paid placement, ranked by current verified bid. Amounts fall 3% a day. No revenue share.</p>
       <nav className="footer-nav">
-        <Link to="/rules">Rules</Link>
         <Link to="/stats">Stats</Link>
-        <a href="https://github.com/Go7hic/youbid" target="_blank" rel="noreferrer">
-          GitHub
-        </a>
         <a href="https://youbid.lol">youbid.lol</a>
       </nav>
     </footer>
