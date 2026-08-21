@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { normalizeIdentity } from '../domain/identity.ts'
-import { completeListingMetadata, sanitizeListingMetadata } from '../domain/listing-metadata.ts'
+import { completeListingMetadata } from '../domain/listing-metadata.ts'
 import { scrapePublicUrl } from '../server/scrape.ts'
 
 export const Route = createFileRoute('/api/resolve')({
@@ -25,14 +25,12 @@ export const Route = createFileRoute('/api/resolve')({
         }
 
         const handle = identity.identity.canonicalKey.startsWith('x:')
-        const metadata = handle
-          ? sanitizeListingMetadata({})
-          : await scrapePublicUrl(identity.identity.targetUrl)
+        const metadata = await scrapePublicUrl(identity.identity.targetUrl)
         const complete = completeListingMetadata(metadata, null)
         return Response.json({
           identity: identity.identity,
           metadata: complete.metadata,
-          source: handle ? 'handle' : metadata.title || metadata.description ? 'scrape' : 'none',
+          source: metadata.title || metadata.description ? (handle ? 'handle' : 'scrape') : 'none',
           missing: complete.ok ? [] : complete.missing,
         })
       },
