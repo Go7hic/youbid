@@ -1,5 +1,11 @@
 import type { CheckoutStatus } from './checkout.ts'
-import { listingContribution, type IntentRecord, type ListingRecord, type TakeoverRecord } from './records.ts'
+import {
+  intentIsExpired,
+  listingContribution,
+  type IntentRecord,
+  type ListingRecord,
+  type TakeoverRecord,
+} from './records.ts'
 
 export interface PublicReceipt {
   intentId: string
@@ -31,7 +37,9 @@ export function buildPublicReceipt(input: {
         ? takeoverActive
           ? 'takeover-active'
           : 'ranked'
-        : 'awaiting-payment'
+        : intentIsExpired(input.intent, input.nowIso)
+          ? 'expired'
+          : 'awaiting-payment'
 
   return {
     intentId: input.intent.id,

@@ -1,5 +1,6 @@
 export type CheckoutStatus =
   | 'awaiting-payment'
+  | 'expired'
   | 'ranked'
   | 'takeover-active'
   | 'needs-support'

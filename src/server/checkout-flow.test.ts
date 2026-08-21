@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { isDuplicateCheckoutRequest, isReceiptReplay } from './d1-errors.ts'
 import { isLocalAppUrl } from './local.ts'
 import { parseCheckoutBody } from './parse.ts'
 
@@ -34,6 +35,40 @@ test('checkout body carries listing metadata when supplied', () => {
   assert.equal(parsed.value.title, 'Youbid')
   assert.equal(parsed.value.description, 'Paid leaderboard')
   assert.equal(parsed.value.imageUrl, 'https://example.com/a.png')
+})
+
+test('only a duplicate webhook receipt counts as a replay', () => {
+  assert.equal(
+    isReceiptReplay(new Error('D1_ERROR: UNIQUE constraint failed: webhook_receipts.provider_event_id')),
+    true,
+  )
+})
+
+test('a failed settlement write is never mistaken for a replay', () => {
+  const failures = [
+    'D1_ERROR: UNIQUE constraint failed: listings.canonical_identity',
+    'D1_ERROR: UNIQUE constraint failed: provider_orders.intent_id',
+    'D1_ERROR: UNIQUE constraint failed: takeover_leases.singleton_key',
+    'D1_ERROR: NOT NULL constraint failed: listings.display_name',
+    'D1_ERROR: FOREIGN KEY constraint failed',
+    'D1_ERROR: CHECK constraint failed: principal_refunded_cents',
+  ]
+  for (const message of failures) {
+    assert.equal(isReceiptReplay(new Error(message)), false, message)
+  }
+})
+
+test('a replayed checkout request is told apart from an open top-up conflict', () => {
+  assert.equal(
+    isDuplicateCheckoutRequest(
+      new Error('D1_ERROR: UNIQUE constraint failed: checkout_intents.owner_id, checkout_intents.request_id'),
+    ),
+    true,
+  )
+  assert.equal(
+    isDuplicateCheckoutRequest(new Error('D1_ERROR: UNIQUE constraint failed: checkout_intents.listing_id')),
+    false,
+  )
 })
 
 test('mock checkout is localhost-only', () => {

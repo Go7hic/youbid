@@ -1,6 +1,52 @@
 import type { Listing } from '../data/listings'
 import { listingContribution, type ListingRecord, type TakeoverRecord } from './records.ts'
 
+export const BOARD_PAGE_SIZE = 50
+
+export interface TakeoverSlot {
+  amountCents: number
+  display: string
+  href: string
+  endsAt: string
+}
+
+export interface BoardPage<T> {
+  page: number
+  pageCount: number
+  takeover: TakeoverSlot | null
+  listings: T[]
+  firstRank: number
+}
+
+/**
+ * An active takeover owns its own page ahead of the listing pages rather than
+ * replacing page one, so paid listings stay reachable while a takeover runs.
+ */
+export function boardPage<T>(input: {
+  listings: readonly T[]
+  takeover: TakeoverSlot | null
+  requestedPage: number
+}): BoardPage<T> {
+  const takeoverPages = input.takeover ? 1 : 0
+  const listingPages = Math.max(1, Math.ceil(input.listings.length / BOARD_PAGE_SIZE))
+  const pageCount = takeoverPages + listingPages
+  const requested = Number.isFinite(input.requestedPage) ? Math.trunc(input.requestedPage) : 1
+  const page = Math.min(Math.max(1, requested), pageCount)
+
+  if (input.takeover && page === 1) {
+    return { page, pageCount, takeover: input.takeover, listings: [], firstRank: 0 }
+  }
+
+  const offset = (page - 1 - takeoverPages) * BOARD_PAGE_SIZE
+  return {
+    page,
+    pageCount,
+    takeover: null,
+    listings: input.listings.slice(offset, offset + BOARD_PAGE_SIZE),
+    firstRank: offset + 1,
+  }
+}
+
 export function ageLabel(settledAt: string, now: Date): string {
   const deltaMs = now.getTime() - Date.parse(settledAt)
   if (!Number.isFinite(deltaMs) || deltaMs < 45_000) return 'just now'
@@ -34,7 +80,7 @@ export function publicTakeover(
   takeover: TakeoverRecord | null,
   listing: ListingRecord | null,
   nowIso: string,
-): { amountCents: number; display: string; href: string; endsAt: string } | null {
+): TakeoverSlot | null {
   if (!takeover || !listing || takeover.status !== 'active' || takeover.endsAt <= nowIso) return null
   return {
     amountCents: listingContribution(listing),

@@ -3,8 +3,13 @@ import { env } from 'cloudflare:workers'
 import type { ProductionConfig, PublicCheckoutConfig } from './contracts.ts'
 import { isLocalAppUrl } from './local.ts'
 
+interface RateLimiter {
+  limit(input: { key: string }): Promise<{ success: boolean }>
+}
+
 type WorkerEnv = {
   DB: D1Database
+  RESOLVE_LIMITER?: RateLimiter
   APP_URL?: string
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string
@@ -21,6 +26,17 @@ function workerEnv(): WorkerEnv {
 
 export function database(): D1Database {
   return workerEnv().DB
+}
+
+/**
+ * Returns true when the caller may proceed. The binding is absent in local dev,
+ * where an unthrottled scraper costs nothing.
+ */
+export async function allowResolve(clientIp: string | null): Promise<boolean> {
+  const limiter = workerEnv().RESOLVE_LIMITER
+  if (!limiter) return true
+  const { success } = await limiter.limit({ key: clientIp ?? 'anonymous' })
+  return success
 }
 
 export function readProductionConfig(): ProductionConfig {

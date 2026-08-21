@@ -30,6 +30,7 @@ export interface ReservationSnapshot {
 }
 
 export type ReservationPlan =
+  | { kind: 'settled'; intent: IntentRecord }
   | { kind: 'reuse'; intent: IntentRecord }
   | { kind: 'recover'; intent: IntentRecord }
   | {
@@ -63,7 +64,7 @@ export function planReserveCheckout(
       return { kind: 'reject', status: 409, message: 'This checkout request already exists with a different payload.' }
     }
     if (existing.state === 'paid') {
-      return { kind: 'reuse', intent: existing }
+      return { kind: 'settled', intent: existing }
     }
     if (existing.state === 'checkout-uncertain' || existing.state === 'creating') {
       return { kind: 'recover', intent: existing }
@@ -75,10 +76,12 @@ export function planReserveCheckout(
 
   const listing = snapshot.listingByIdentity
   if (listing) {
-    if (!canRaiseListing(snapshot.ownerId, listing)) {
+    const current = listingContribution(listing)
+    // A fully refunded listing keeps its row but leaves the board, so its identity
+    // has to become claimable again instead of staying locked to the refunded owner.
+    if (current > 0 && !canRaiseListing(snapshot.ownerId, listing)) {
       return { kind: 'reject', status: 409, message: 'Only the owning visitor can raise this listing.' }
     }
-    const current = listingContribution(listing)
     if (snapshot.targetAmountCents <= current) {
       return { kind: 'reject', status: 400, message: 'Raise the bid above the listing’s current paid amount.' }
     }

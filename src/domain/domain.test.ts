@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { boardPage } from './board.ts'
 import { settleVerifiedPaidEvent } from './checkout.ts'
 import { normalizeIdentity } from './identity.ts'
 import { completeListingMetadata } from './listing-metadata.ts'
 import { amountToClaim, dollarsToCents, takeoverPrice } from './money.ts'
 import { canRaiseListing, signOwnerCookie, verifyOwnerCookie } from './owner.ts'
 import { projectedRank, rankListings } from './ranking.ts'
+import { buildPublicReceipt } from './receipt.ts'
 import { planReserveCheckout } from './reservation.ts'
 import type { IntentRecord, ListingRecord } from './records.ts'
 import { planPaidSettlement, planRefundSettlement } from './settlement.ts'
@@ -352,6 +354,172 @@ test('refund snapshots recompute contribution without inventing a delta', () => 
   assert.equal(plan.writes.listing?.principalRefundedCents, 5_000)
 })
 
+test('a fully refunded listing releases its identity to the next bidder', () => {
+  const refunded = listing({ principalPaidCents: 10_000, principalRefundedCents: 10_000 })
+  const snapshot = {
+    nowIso: '2026-08-21T02:00:00.000Z',
+    ownerId: 'owner_2',
+    requestId: 'req_9',
+    payloadHash: 'hash_9',
+    identity,
+    targetAmountCents: 5_000,
+    kind: 'rank' as const,
+    existingByRequest: null,
+    listingByIdentity: refunded,
+    openTopUpForListing: null,
+    activeTakeover: null,
+    leaderAmountCents: 0,
+    listingTitle: 'Example',
+    listingDescription: 'A product',
+    listingImageUrl: null,
+  }
+  const plan = planReserveCheckout(snapshot, { intentId: 'intent_9', expiresAt: '2026-08-21T02:30:00.000Z' })
+  assert.equal(plan.kind, 'create')
+
+  const stillOwned = planReserveCheckout(
+    { ...snapshot, listingByIdentity: listing({ principalPaidCents: 10_000, principalRefundedCents: 0 }) },
+    { intentId: 'intent_10', expiresAt: '2026-08-21T02:30:00.000Z' },
+  )
+  assert.equal(stillOwned.kind, 'reject')
+})
+
+test('replaying a paid checkout request returns the receipt instead of a new session', () => {
+  const plan = planReserveCheckout(
+    {
+      nowIso: '2026-08-21T02:00:00.000Z',
+      ownerId: 'owner_1',
+      requestId: 'req_1',
+      payloadHash: 'hash_1',
+      identity,
+      targetAmountCents: 10_000,
+      kind: 'rank',
+      existingByRequest: intent({ state: 'paid', listingId: 'listing_1' }),
+      listingByIdentity: listing(),
+      openTopUpForListing: null,
+      activeTakeover: null,
+      leaderAmountCents: 10_000,
+      listingTitle: 'Example',
+      listingDescription: 'A product',
+      listingImageUrl: null,
+    },
+    { intentId: 'intent_new', expiresAt: '2026-08-21T02:30:00.000Z' },
+  )
+  assert.equal(plan.kind, 'settled')
+})
+
+test('refunding a takeover releases the first-page lease', () => {
+  const takeoverOrder = {
+    providerOrderId: 'pi_takeover',
+    intentId: 'intent_1',
+    providerStatus: 'paid',
+    principalPaidCents: 20_000,
+    principalRefundedCents: 0,
+    snapshotHash: 'hash_takeover',
+    occurredAt: '2026-08-21T00:40:00.000Z',
+  }
+  const plan = planRefundSettlement(
+    {
+      receipts: [],
+      intent: intent({ kind: 'takeover', state: 'paid', listingId: 'listing_1' }),
+      listing: listing({ principalPaidCents: 20_000 }),
+      orders: [takeoverOrder],
+      activeTakeover: {
+        id: 'lease_1',
+        intentId: 'intent_1',
+        listingId: 'listing_1',
+        startsAt: '2026-08-21T00:40:00.000Z',
+        endsAt: '2026-08-21T03:40:00.000Z',
+        status: 'active',
+      },
+      identity,
+    },
+    {
+      eventId: 'evt_takeover_refund',
+      payloadHash: 'hash_takeover_refund',
+      eventType: 'charge.refunded',
+      providerOrderId: 'pi_takeover',
+      principalPaidCents: 20_000,
+      principalRefundedCents: 20_000,
+      occurredAt: '2026-08-21T01:00:00.000Z',
+    },
+  )
+  assert.equal(plan.kind, 'settle')
+  if (plan.kind !== 'settle') return
+  assert.equal(plan.writes.takeover?.id, 'lease_1')
+  assert.equal(plan.writes.takeover?.status, 'ended')
+})
+
+test('a partial refund keeps the takeover lease running', () => {
+  const plan = planRefundSettlement(
+    {
+      receipts: [],
+      intent: intent({ kind: 'takeover', state: 'paid', listingId: 'listing_1' }),
+      listing: listing({ principalPaidCents: 20_000 }),
+      orders: [
+        {
+          providerOrderId: 'pi_takeover',
+          intentId: 'intent_1',
+          providerStatus: 'paid',
+          principalPaidCents: 20_000,
+          principalRefundedCents: 0,
+          snapshotHash: 'hash_takeover',
+          occurredAt: '2026-08-21T00:40:00.000Z',
+        },
+      ],
+      activeTakeover: {
+        id: 'lease_1',
+        intentId: 'intent_1',
+        listingId: 'listing_1',
+        startsAt: '2026-08-21T00:40:00.000Z',
+        endsAt: '2026-08-21T03:40:00.000Z',
+        status: 'active',
+      },
+      identity,
+    },
+    {
+      eventId: 'evt_partial',
+      payloadHash: 'hash_partial',
+      eventType: 'charge.refunded',
+      providerOrderId: 'pi_takeover',
+      principalPaidCents: 20_000,
+      principalRefundedCents: 5_000,
+      occurredAt: '2026-08-21T01:00:00.000Z',
+    },
+  )
+  assert.equal(plan.kind, 'settle')
+  if (plan.kind !== 'settle') return
+  assert.equal(plan.writes.takeover, undefined)
+})
+
+test('an abandoned checkout reads as expired instead of waiting forever', () => {
+  const expired = buildPublicReceipt({
+    intent: intent({ state: 'awaiting-payment', expiresAt: '2026-08-21T01:00:00.000Z' }),
+    listing: null,
+    takeover: null,
+    rank: null,
+    nowIso: '2026-08-21T02:00:00.000Z',
+  })
+  assert.equal(expired.status, 'expired')
+
+  const swept = buildPublicReceipt({
+    intent: intent({ state: 'expired', expiresAt: '2026-08-21T01:00:00.000Z' }),
+    listing: null,
+    takeover: null,
+    rank: null,
+    nowIso: '2026-08-21T02:00:00.000Z',
+  })
+  assert.equal(swept.status, 'expired')
+
+  const stillOpen = buildPublicReceipt({
+    intent: intent({ state: 'awaiting-payment', expiresAt: '2026-08-21T03:00:00.000Z' }),
+    listing: null,
+    takeover: null,
+    rank: null,
+    nowIso: '2026-08-21T02:00:00.000Z',
+  })
+  assert.equal(stillOpen.status, 'awaiting-payment')
+})
+
 test('owner cookie verifies only the signed visitor token', async () => {
   assert.equal(canRaiseListing('owner_1', { ownerId: 'owner_1' }), true)
   assert.equal(canRaiseListing('owner_2', { ownerId: 'owner_1' }), false)
@@ -381,4 +549,45 @@ test('public stats expose only board facts and hide owner tokens', () => {
 
 test('an empty paid board stays empty', () => {
   assert.deepEqual(rankListings([]), [])
+})
+
+const takeoverSlot = {
+  amountCents: 20_000,
+  display: 'one.example',
+  href: '/go/lst_one',
+  endsAt: '2026-08-21T12:00:00.000Z',
+}
+
+test('an active takeover adds a page instead of hiding the leaderboard', () => {
+  const listings = ['a', 'b', 'c']
+  const first = boardPage({ listings, takeover: takeoverSlot, requestedPage: 1 })
+  assert.equal(first.pageCount, 2)
+  assert.deepEqual(first.takeover, takeoverSlot)
+  assert.deepEqual(first.listings, [])
+
+  const second = boardPage({ listings, takeover: takeoverSlot, requestedPage: 2 })
+  assert.equal(second.pageCount, 2)
+  assert.equal(second.takeover, null)
+  assert.deepEqual(second.listings, ['a', 'b', 'c'])
+  assert.equal(second.firstRank, 1)
+})
+
+test('takeover paging keeps rank numbering continuous across listing pages', () => {
+  const listings = Array.from({ length: 120 }, (_, index) => index)
+  const withTakeover = boardPage({ listings, takeover: takeoverSlot, requestedPage: 3 })
+  assert.equal(withTakeover.pageCount, 4)
+  assert.equal(withTakeover.firstRank, 51)
+  assert.deepEqual(withTakeover.listings.slice(0, 1), [50])
+
+  const withoutTakeover = boardPage({ listings, takeover: null, requestedPage: 2 })
+  assert.equal(withoutTakeover.pageCount, 3)
+  assert.equal(withoutTakeover.firstRank, 51)
+  assert.deepEqual(withoutTakeover.listings.slice(0, 1), [50])
+})
+
+test('a requested page beyond the board clamps instead of rendering an empty board', () => {
+  const clamped = boardPage({ listings: ['a'], takeover: null, requestedPage: 7 })
+  assert.equal(clamped.page, 1)
+  assert.deepEqual(clamped.listings, ['a'])
+  assert.equal(boardPage({ listings: [], takeover: null, requestedPage: 1 }).pageCount, 1)
 })

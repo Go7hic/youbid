@@ -306,6 +306,12 @@ export function planRefundSettlement(snapshot: SettlementSnapshot, event: Refund
     snapshot.orders.map((row) => (row.providerOrderId === nextOrder.providerOrderId ? nextOrder : row)),
   )
 
+  const refundedInFull = nextOrder.principalRefundedCents >= nextOrder.principalPaidCents
+  const releasedTakeover =
+    refundedInFull && snapshot.activeTakeover?.intentId === order.intentId
+      ? { ...snapshot.activeTakeover, status: 'ended' as const }
+      : undefined
+
   return {
     kind: 'settle',
     writes: {
@@ -322,6 +328,7 @@ export function planRefundSettlement(snapshot: SettlementSnapshot, event: Refund
         principalPaidCents: totals.principalPaidCents,
         principalRefundedCents: totals.principalRefundedCents,
       },
+      takeover: releasedTakeover,
       receiptStatus: 'ranked',
     },
   }

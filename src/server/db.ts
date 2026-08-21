@@ -78,6 +78,14 @@ export async function expireOpenIntents(db: D1Database, nowIso: string): Promise
     )
     .bind(nowIso)
     .run()
+  await endExpiredTakeovers(db, nowIso)
+}
+
+/**
+ * A lease past `ends_at` still occupies the `one_active_takeover` unique index,
+ * so it must be swept before any path that reads or inserts an active lease.
+ */
+export async function endExpiredTakeovers(db: D1Database, nowIso: string): Promise<void> {
   await db
     .prepare(`UPDATE takeover_leases SET status = 'ended' WHERE status = 'active' AND ends_at <= ?`)
     .bind(nowIso)
@@ -183,7 +191,7 @@ export async function updateIntent(db: D1Database, intent: Pick<IntentRecord, 'i
     .run()
 }
 
-export async function loadSettlementSnapshot(db: D1Database, input: { eventId: string; intentId?: string; providerOrderId?: string }): Promise<SettlementSnapshot> {
+export async function loadSettlementSnapshot(db: D1Database, input: { eventId: string; nowIso: string; intentId?: string; providerOrderId?: string }): Promise<SettlementSnapshot> {
   const intent = input.intentId
     ? mapIntent(await db.prepare(`SELECT * FROM checkout_intents WHERE id = ? LIMIT 1`).bind(input.intentId).first<IntentRow>())
     : input.providerOrderId
@@ -217,7 +225,7 @@ export async function loadSettlementSnapshot(db: D1Database, input: { eventId: s
     intent
       ? db.prepare(`SELECT * FROM provider_orders WHERE intent_id IN (SELECT id FROM checkout_intents WHERE listing_id = ? OR id = ?)`).bind(listing?.id ?? intent.id, intent.id)
       : db.prepare(`SELECT * FROM provider_orders WHERE provider_order_id = ?`).bind(input.providerOrderId ?? ''),
-    db.prepare(`SELECT * FROM takeover_leases WHERE status = 'active' LIMIT 1`),
+    db.prepare(`SELECT * FROM takeover_leases WHERE status = 'active' AND ends_at > ? LIMIT 1`).bind(input.nowIso),
   ])
 
   return {
@@ -255,6 +263,7 @@ export async function applySettlement(db: D1Database, writes: SettlementWrites):
              principal_paid_cents, principal_refunded_cents, settled_at
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
+             owner_id = excluded.owner_id,
              display_name = excluded.display_name,
              description = excluded.description,
              image_url = excluded.image_url,
@@ -317,7 +326,10 @@ export async function applySettlement(db: D1Database, writes: SettlementWrites):
       db
         .prepare(
           `INSERT INTO takeover_leases (id, intent_id, listing_id, starts_at, ends_at, status)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             ends_at = excluded.ends_at,
+             status = excluded.status`,
         )
         .bind(
           writes.takeover.id,

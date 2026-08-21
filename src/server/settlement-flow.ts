@@ -1,36 +1,24 @@
 import { planIgnoredEvent, planPaidSettlement, planRefundSettlement, type PaidEvent, type RefundEvent, type SettlementPlan } from '../domain/settlement.ts'
+import { isReceiptReplay } from './d1-errors.ts'
 import { applySettlement, loadSettlementSnapshot } from './db.ts'
 
-export async function persistPaidEvent(db: D1Database, event: PaidEvent): Promise<SettlementPlan> {
-  const snapshot = await loadSettlementSnapshot(db, { eventId: event.eventId, intentId: event.intentId })
+export async function persistPaidEvent(db: D1Database, event: PaidEvent, nowIso: string): Promise<SettlementPlan> {
+  const snapshot = await loadSettlementSnapshot(db, { eventId: event.eventId, intentId: event.intentId, nowIso })
   const plan = planPaidSettlement(snapshot, event, {
     listingId: crypto.randomUUID(),
     takeoverId: crypto.randomUUID(),
   })
-  if (plan.kind === 'replay') return plan
-  try {
-    await applySettlement(db, plan.writes)
-  } catch (error) {
-    if (isUniqueConflict(error)) return { kind: 'replay', receiptStatus: 'ranked' }
-    throw error
-  }
-  return plan
+  return applyPlan(db, plan)
 }
 
-export async function persistRefundEvent(db: D1Database, event: RefundEvent): Promise<SettlementPlan> {
+export async function persistRefundEvent(db: D1Database, event: RefundEvent, nowIso: string): Promise<SettlementPlan> {
   const snapshot = await loadSettlementSnapshot(db, {
     eventId: event.eventId,
     providerOrderId: event.providerOrderId,
+    nowIso,
   })
   const plan = planRefundSettlement(snapshot, event)
-  if (plan.kind === 'replay') return plan
-  try {
-    await applySettlement(db, plan.writes)
-  } catch (error) {
-    if (isUniqueConflict(error)) return { kind: 'replay', receiptStatus: 'ranked' }
-    throw error
-  }
-  return plan
+  return applyPlan(db, plan)
 }
 
 export async function persistIgnoredEvent(
@@ -42,10 +30,17 @@ export async function persistIgnoredEvent(
   try {
     await applySettlement(db, plan.writes)
   } catch (error) {
-    if (!isUniqueConflict(error)) throw error
+    if (!isReceiptReplay(error)) throw error
   }
 }
 
-export function isUniqueConflict(error: unknown): boolean {
-  return error instanceof Error && /UNIQUE|constraint/i.test(error.message)
+async function applyPlan(db: D1Database, plan: SettlementPlan): Promise<SettlementPlan> {
+  if (plan.kind === 'replay') return plan
+  try {
+    await applySettlement(db, plan.writes)
+  } catch (error) {
+    if (isReceiptReplay(error)) return { kind: 'replay', receiptStatus: plan.writes.receiptStatus }
+    throw error
+  }
+  return plan
 }

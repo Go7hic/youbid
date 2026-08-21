@@ -18,7 +18,7 @@ export interface CheckoutRequest {
 
 export type ProductionBoundaryResult<T> =
   | { ok: true; value: T }
-  | { ok: false; status: 400 | 401 | 409 | 501 | 503; message: string }
+  | { ok: false; status: 400 | 401 | 409 | 501 | 502 | 503; message: string }
 
 export interface PaidWebhookSnapshot {
   eventId: string

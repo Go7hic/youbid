@@ -22,5 +22,12 @@
       "database_id": "5fc1f229-ee89-42c9-8d44-fe7af9c0d15a",
       "migrations_dir": "migrations"
     }
+  ],
+  "ratelimits": [
+    {
+      "name": "RESOLVE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
+    }
   ]
 }

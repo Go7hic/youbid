@@ -25,36 +25,50 @@ export async function createStripeCheckout(
 
   const stripe = createStripeClient(config.stripeSecretKey)
   const appUrl = config.appUrl.replace(/\/$/, '')
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: 'payment',
-      client_reference_id: input.intentId,
-      success_url: `${appUrl}/receipts/${input.intentId}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/?checkout=cancelled`,
-      allow_promotion_codes: false,
-      automatic_tax: { enabled: false },
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            unit_amount: input.amountCents,
-            product_data: {
-              name: input.takeover
-                ? 'Youbid first-page takeover · 3 hours'
-                : 'Youbid leaderboard bid',
-              description: `Paid placement for ${input.canonicalIdentity}`,
+
+  let session: Stripe.Checkout.Session
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        client_reference_id: input.intentId,
+        success_url: `${appUrl}/receipts/${input.intentId}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/?checkout=cancelled`,
+        allow_promotion_codes: false,
+        automatic_tax: { enabled: false },
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              unit_amount: input.amountCents,
+              product_data: {
+                name: input.takeover
+                  ? 'Youbid first-page takeover · 3 hours'
+                  : 'Youbid leaderboard bid',
+                description: `Paid placement for ${input.canonicalIdentity}`,
+              },
             },
           },
+        ],
+        metadata: {
+          youbid_intent_id: input.intentId,
+          purchase_kind: input.takeover ? 'takeover' : 'rank',
         },
-      ],
-      metadata: {
-        youbid_intent_id: input.intentId,
-        purchase_kind: input.takeover ? 'takeover' : 'rank',
       },
-    },
-    { idempotencyKey: `youbid-checkout-${input.requestId}` },
-  )
+      { idempotencyKey: `youbid-checkout-${input.requestId}` },
+    )
+  } catch (error) {
+    console.error('stripe checkout session create failed', {
+      intentId: input.intentId,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return {
+      ok: false,
+      status: 502,
+      message: 'Stripe Checkout is unavailable right now. Nothing was charged — try again.',
+    }
+  }
 
   if (!session.url) {
     return { ok: false, status: 503, message: 'Stripe did not return a hosted Checkout URL.' }

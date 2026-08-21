@@ -4,6 +4,7 @@ import { getRequestHeader } from '@tanstack/react-start/server'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Listing } from '../data/listings.ts'
+import { boardPage } from '../domain/board.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
 import {
   BID_STEP_CENTS,
@@ -16,8 +17,6 @@ import { projectedRank, rankListings } from '../domain/ranking.ts'
 import { database, publicCheckoutConfig } from '../server/env.ts'
 import { loadPublicBoard, loadPublicStats, recordTraffic } from '../server/db.ts'
 import { SiteFooter, SiteHeader } from '../ui/site-chrome.tsx'
-
-const PAGE_SIZE = 50
 
 const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
   const db = database()
@@ -62,8 +61,7 @@ function Home() {
   const [page, setPage] = useState(1)
   const [busy, setBusy] = useState(false)
 
-  const pageCount = Math.max(1, Math.ceil(rankedListings.length / PAGE_SIZE))
-  const visibleListings = rankedListings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const board = boardPage({ listings: rankedListings, takeover: data.takeover, requestedPage: page })
   const previewRank = projectedRank(amountCents, rankedListings)
   const normalizedIdentity = normalizeIdentity(identityInput)
   const canCheckout =
@@ -177,7 +175,7 @@ function Home() {
       })
       const payload = (await response.json()) as {
         message?: string
-        mode?: 'mock' | 'stripe' | 'unavailable'
+        mode?: 'mock' | 'stripe' | 'settled' | 'unavailable'
         intentId?: string
         checkoutUrl?: string
       }
@@ -185,7 +183,7 @@ function Home() {
         setIdentityError(payload.message ?? 'Checkout could not start.')
         return
       }
-      if (payload.mode === 'stripe' && payload.checkoutUrl) {
+      if ((payload.mode === 'stripe' || payload.mode === 'settled') && payload.checkoutUrl) {
         window.location.assign(payload.checkoutUrl)
         return
       }
@@ -363,42 +361,42 @@ function Home() {
             Refresh
           </button>
           <nav className="pagination" aria-label="Leaderboard pages">
-            <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1}>Prev</button>
-            {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+            <button type="button" onClick={() => setPage(board.page - 1)} disabled={board.page === 1}>Prev</button>
+            {Array.from({ length: board.pageCount }, (_, index) => index + 1).map((pageNumber) => (
               <button
                 key={pageNumber}
                 type="button"
-                className={pageNumber === page ? 'current-page' : undefined}
-                aria-current={pageNumber === page ? 'page' : undefined}
+                className={pageNumber === board.page ? 'current-page' : undefined}
+                aria-current={pageNumber === board.page ? 'page' : undefined}
                 onClick={() => setPage(pageNumber)}
               >
                 {pageNumber}
               </button>
             ))}
-            <button type="button" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={page === pageCount}>Next</button>
+            <button type="button" onClick={() => setPage(board.page + 1)} disabled={board.page === board.pageCount}>Next</button>
           </nav>
         </div>
 
-        {page === 1 && activeTakeover ? (
+        {board.takeover ? (
           <article className="takeover-live">
             <span className="takeover-kicker">First-page takeover · paid</span>
-            <a href={activeTakeover.href} target="_blank" rel="sponsored noopener noreferrer">
-              {activeTakeover.display}
+            <a href={board.takeover.href} target="_blank" rel="sponsored noopener noreferrer">
+              {board.takeover.display}
             </a>
             <p>
               This listing owns Youbid page one until{' '}
-              {new Date(activeTakeover.endsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+              {new Date(board.takeover.endsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
             </p>
-            <strong>{formatUsd(activeTakeover.amountCents)}</strong>
+            <strong>{formatUsd(board.takeover.amountCents)}</strong>
             <button type="button" onClick={() => setPage(2)}>Browse the regular leaderboard</button>
           </article>
         ) : (
           <div className="listing-stack">
-            {visibleListings.length === 0 ? (
+            {board.listings.length === 0 ? (
               <p className="empty-note">No paid listings yet. The first verified bid takes #1.</p>
             ) : null}
-            {visibleListings.map((listing, index) => {
-              const rank = (page - 1) * PAGE_SIZE + index + 1
+            {board.listings.map((listing, index) => {
+              const rank = board.firstRank + index
               const claimCents = amountToClaim(listing.amountCents)
               return (
                 <article

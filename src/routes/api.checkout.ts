@@ -11,7 +11,7 @@ import { createStripeCheckout } from '../server/stripe.ts'
 import { verifyTurnstile } from '../server/turnstile.ts'
 import { database, publicCheckoutConfig, readProductionConfig } from '../server/env.ts'
 import { ensureOwner, expireOpenIntents, insertIntent, loadReservationSnapshot, updateIntent } from '../server/db.ts'
-import { isUniqueConflict } from '../server/settlement-flow.ts'
+import { isDuplicateCheckoutRequest } from '../server/d1-errors.ts'
 
 export const Route = createFileRoute('/api/checkout')({
   server: {
@@ -138,12 +138,21 @@ export const Route = createFileRoute('/api/checkout')({
           )
         }
 
+        if (plan.kind === 'settled') {
+          return jsonWithOwner(
+            { mode: 'settled', intentId: plan.intent.id, checkoutUrl: `/receipts/${plan.intent.id}` },
+            200,
+            owner.cookieValue,
+            request,
+          )
+        }
+
         let reserved = plan.intent
         if (plan.kind === 'create') {
           try {
             await insertIntent(db, { ...plan.intent, providerCheckoutId: null })
           } catch (error) {
-            if (!isUniqueConflict(error)) throw error
+            if (!isDuplicateCheckoutRequest(error)) throw error
             const retry = await loadReservationSnapshot(db, {
               ...snapshotInput,
               listingTitle: metadata.metadata.title,

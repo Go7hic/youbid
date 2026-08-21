@@ -47,6 +47,7 @@ function ReceiptPage() {
 }
 
 function ReceiptBody({ receipt }: { receipt: PublicReceipt }) {
+  const settled = receipt.status === 'ranked' || receipt.status === 'takeover-active'
   const title =
     receipt.status === 'takeover-active'
       ? 'Page one is yours'
@@ -54,12 +55,14 @@ function ReceiptBody({ receipt }: { receipt: PublicReceipt }) {
         ? `You claimed rank #${receipt.rank}`
         : receipt.status === 'needs-support'
           ? 'This payment needs a review'
-          : 'Waiting for payment'
+          : receipt.status === 'expired'
+            ? 'This checkout expired'
+            : 'Waiting for payment'
 
   return (
     <>
-      <p className={`page-kicker ${receipt.status === 'awaiting-payment' ? '' : 'paid'}`}>
-        {receipt.status === 'awaiting-payment' ? 'Checkout return' : 'Paid and settled'}
+      <p className={`page-kicker ${settled ? 'paid' : ''}`}>
+        {settled ? 'Paid and settled' : 'Checkout return'}
       </p>
       <h1 id="receipt-heading">{title}</h1>
       <dl className="receipt-dl">
@@ -85,6 +88,12 @@ function ReceiptBody({ receipt }: { receipt: PublicReceipt }) {
       {receipt.status === 'takeover-active' && receipt.takeoverEndsAt ? (
         <p className="page-lead">
           First-page takeover is active until {new Date(receipt.takeoverEndsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+        </p>
+      ) : null}
+      {receipt.status === 'expired' ? (
+        <p className="page-lead">
+          No payment settled before this checkout ran out, so nothing was charged and the board is
+          unchanged. Start a new bid whenever you are ready.
         </p>
       ) : null}
       {receipt.status === 'needs-support' ? (

@@ -2,12 +2,20 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { normalizeIdentity } from '../domain/identity.ts'
 import { completeListingMetadata } from '../domain/listing-metadata.ts'
+import { allowResolve } from '../server/env.ts'
 import { scrapePublicUrl } from '../server/scrape.ts'
 
 export const Route = createFileRoute('/api/resolve')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (!(await allowResolve(request.headers.get('CF-Connecting-IP')))) {
+          return Response.json(
+            { message: 'Too many lookups. Wait a moment and try again.' },
+            { status: 429 },
+          )
+        }
+
         let raw: unknown
         try {
           raw = await request.json()

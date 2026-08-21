@@ -43,18 +43,22 @@ export const Route = createFileRoute('/api/mock/settle')({
           return Response.json({ code: 'intent_not_found', message: 'Checkout intent was not found.' }, { status: 404 })
         }
 
-        const snapshot = await loadSettlementSnapshot(db, { eventId: `mock_${intent.id}`, intentId: intent.id })
+        const snapshot = await loadSettlementSnapshot(db, { eventId: `mock_${intent.id}`, intentId: intent.id, nowIso })
         const current = snapshot.listing ? listingContribution(snapshot.listing) : 0
-        const plan = await persistPaidEvent(db, {
-          eventId: `mock_${intent.id}`,
-          payloadHash: intent.payloadHash,
-          eventType: 'youbid.mock.paid',
-          providerOrderId: `mock_order_${intent.id}`,
-          intentId: intent.id,
-          principalPaidCents: intent.targetAmountCents - current,
-          principalRefundedCents: 0,
-          occurredAt: nowIso,
-        })
+        const plan = await persistPaidEvent(
+          db,
+          {
+            eventId: `mock_${intent.id}`,
+            payloadHash: intent.payloadHash,
+            eventType: 'youbid.mock.paid',
+            providerOrderId: `mock_order_${intent.id}`,
+            intentId: intent.id,
+            principalPaidCents: intent.targetAmountCents - current,
+            principalRefundedCents: 0,
+            occurredAt: nowIso,
+          },
+          nowIso,
+        )
 
         return Response.json({
           code: plan.kind === 'replay' ? 'replay' : plan.kind,
