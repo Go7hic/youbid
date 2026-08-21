@@ -2,17 +2,20 @@
 
 # Youbid
 
-Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a whole-dollar bid, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by successfully paid principal. Creating checkout never changes the board. Only a verified paid webhook does.
+Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a whole-dollar bid, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by **current** balance. Every live amount falls 3% a day and drops off below $2. Creating checkout never changes the board. Only a verified paid webhook does.
 
 The product idea and board layout take cues from [outbid.lol](http://outbid.lol/). Youbid is a separate implementation.
 
 ## What you get
 
-- A public board with live projected rank and hover/focus **claim this rank** pills
+- A public board with live projected rank, current (decaying) amounts, and the date each listing drops off
+- Hover/focus **claim this rank** pills priced at that row’s current amount plus $1, not the historical total
 - Identity as a URL or `@handle`. Youbid tries to read a title, description, and favicon from the page. If that fails — or the input is an X handle — the visitor fills title and description before paying
-- Hosted Stripe Checkout for the reserved bid. Localhost can mock-settle through the same planner
-- A three-hour first-page takeover at twice the current #1 amount
-- `/stats` for live listings, volume, visitors, and outbound clicks
+- Hosted Stripe Checkout for the reserved bid. A raise charges the gap to the current decayed amount. Localhost can mock-settle through the same planner
+- A three-hour first-page takeover. Price starts at 4× current #1 after the last takeover ends and falls to 1.2× over 24 hours. First place is the decayed leader
+- `/rules` for the public contract: 3% daily decay, owner-only raises while live, the falling takeover, identity, and refunds
+- `/stats` for live listings, volume, distinct visitors, and outbound clicks, computed from D1 at request time
+- `/llms.txt`, `/robots.txt`, `/sitemap.xml`, and JSON-LD so search engines and assistants can describe the board accurately
 - `/go/$listingId` records a click and redirects to the sponsored URL
 - `/receipts/$intentId` after return from checkout
 
@@ -97,6 +100,7 @@ Success URL is `/receipts/$intentId?session_id={CHECKOUT_SESSION_ID}`. Cancel UR
 | `/` | Public board and bid form |
 | `/stats` | Live public facts |
 | `/rules` | Ranking contract |
+| `/rules.md` | Same rules as Markdown, from one shared source |
 | `/receipts/$intentId` | Checkout return |
 | `/go/$listingId` | Sponsored outbound + click |
 | `/api/resolve` | Normalize identity and scrape metadata |

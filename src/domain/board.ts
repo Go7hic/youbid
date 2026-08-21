@@ -1,5 +1,6 @@
 import type { Listing } from '../data/listings'
-import { listingContribution, type ListingRecord, type TakeoverRecord } from './records.ts'
+import { listingStanding } from './decay.ts'
+import { type ListingRecord, type TakeoverRecord } from './records.ts'
 
 export const BOARD_PAGE_SIZE = 50
 
@@ -63,14 +64,16 @@ export function toPublicListing(
   clicks: number,
   now: Date,
 ): Listing {
+  const nowIso = now.toISOString()
   return {
     id: listing.id,
     domain: listing.displayName,
     description: listing.description || 'Paid and verified on Youbid.',
     href: `/go/${listing.id}`,
     image: listing.imageUrl || faviconForUrl(listing.targetUrl),
-    amountCents: listingContribution(listing),
-    settledAt: listing.settledAt ?? now.toISOString(),
+    amountCents: listingStanding(listing, nowIso),
+    settledAt: listing.settledAt ?? nowIso,
+    dropsOffAt: listing.dropsOffAt ?? listing.settledAt ?? nowIso,
     age: listing.settledAt ? ageLabel(listing.settledAt, now) : 'just now',
     clicks,
   }
@@ -83,7 +86,7 @@ export function publicTakeover(
 ): TakeoverSlot | null {
   if (!takeover || !listing || takeover.status !== 'active' || takeover.endsAt <= nowIso) return null
   return {
-    amountCents: listingContribution(listing),
+    amountCents: listingStanding(listing, nowIso),
     display: listing.displayName,
     href: `/go/${listing.id}`,
     endsAt: takeover.endsAt,

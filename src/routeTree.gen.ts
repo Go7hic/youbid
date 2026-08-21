@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as RulesDotmdRouteImport } from './routes/rules[.]md'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ApiCheckoutRouteImport } from './routes/api.checkout'
 import { Route as ApiResolveRouteImport } from './routes/api.resolve'
@@ -28,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesDotmdRoute = RulesDotmdRouteImport.update({
+  id: '/rules.md',
+  path: '/rules.md',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatsRoute = StatsRouteImport.update({
@@ -74,6 +80,7 @@ const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/rules.md': typeof RulesDotmdRoute
   '/stats': typeof StatsRoute
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/resolve': typeof ApiResolveRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/rules.md': typeof RulesDotmdRoute
   '/stats': typeof StatsRoute
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/resolve': typeof ApiResolveRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/rules': typeof RulesRoute
+  '/rules.md': typeof RulesDotmdRoute
   '/stats': typeof StatsRoute
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/resolve': typeof ApiResolveRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/rules'
+    | '/rules.md'
     | '/stats'
     | '/api/checkout'
     | '/api/resolve'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/rules'
+    | '/rules.md'
     | '/stats'
     | '/api/checkout'
     | '/api/resolve'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/rules'
+    | '/rules.md'
     | '/stats'
     | '/api/checkout'
     | '/api/resolve'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RulesRoute: typeof RulesRoute
+  RulesDotmdRoute: typeof RulesDotmdRoute
   StatsRoute: typeof StatsRoute
   ApiCheckoutRoute: typeof ApiCheckoutRoute
   ApiResolveRoute: typeof ApiResolveRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rules.md': {
+      id: '/rules.md'
+      path: '/rules.md'
+      fullPath: '/rules.md'
+      preLoaderRoute: typeof RulesDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stats': {
@@ -238,6 +258,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RulesRoute: RulesRoute,
+  RulesDotmdRoute: RulesDotmdRoute,
   StatsRoute: StatsRoute,
   ApiCheckoutRoute: ApiCheckoutRoute,
   ApiResolveRoute: ApiResolveRoute,

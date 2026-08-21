@@ -1,4 +1,5 @@
 import { settleVerifiedPaidEvent, type CheckoutStatus } from './checkout.ts'
+import { dropsOffAt, listingStanding, toppedUpDropsOffAt } from './decay.ts'
 import type { ProductIdentity } from './identity.ts'
 import {
   listingContribution,
@@ -131,7 +132,7 @@ export function planPaidSettlement(
     }
   }
 
-  const currentContribution = snapshot.listing ? listingContribution(snapshot.listing) : 0
+  const currentContribution = snapshot.listing ? listingStanding(snapshot.listing, event.occurredAt) : 0
   const expectedCharge = intent.targetAmountCents - currentContribution
   if (event.principalPaidCents !== expectedCharge || event.principalRefundedCents !== 0) {
     return {
@@ -190,6 +191,7 @@ export function planPaidSettlement(
     principalPaidCents: totals.principalPaidCents,
     principalRefundedCents: totals.principalRefundedCents,
     settledAt: event.occurredAt,
+    dropsOffAt: nextDropsOffAt(snapshot.listing, event.principalPaidCents, event.occurredAt),
   }
 
   const collidingTakeover = intent.kind === 'takeover' && snapshot.activeTakeover !== null
@@ -327,6 +329,7 @@ export function planRefundSettlement(snapshot: SettlementSnapshot, event: Refund
         ...snapshot.listing,
         principalPaidCents: totals.principalPaidCents,
         principalRefundedCents: totals.principalRefundedCents,
+        dropsOffAt: refundedDropsOffAt(snapshot.listing, totals.principalPaidCents - totals.principalRefundedCents, event.occurredAt),
       },
       takeover: releasedTakeover,
       receiptStatus: 'ranked',
@@ -348,4 +351,16 @@ export function planIgnoredEvent(event: { eventId: string; payloadHash: string; 
       receiptStatus: 'awaiting-payment',
     },
   }
+}
+
+function nextDropsOffAt(listing: ListingRecord | null, paidCents: number, nowIso: string): string {
+  if (!listing) return dropsOffAt(paidCents, nowIso)
+  return toppedUpDropsOffAt(listing.dropsOffAt ?? dropsOffAt(listingContribution(listing), listing.settledAt ?? nowIso), paidCents, nowIso)
+}
+
+function refundedDropsOffAt(listing: ListingRecord, nextContributionCents: number, nowIso: string): string {
+  const previous = listingContribution(listing)
+  const standing = listingStanding(listing, nowIso)
+  const next = previous <= 0 ? 0 : Math.round((standing * nextContributionCents) / previous)
+  return dropsOffAt(next, nowIso)
 }

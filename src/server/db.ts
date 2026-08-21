@@ -1,5 +1,6 @@
+import { listingStanding } from '../domain/decay.ts'
 import { identityFromCanonical, type ProductIdentity } from '../domain/identity.ts'
-import { listingContribution, type IntentRecord, type ListingRecord, type ProviderOrderRecord, type ReceiptRecord, type TakeoverRecord } from '../domain/records.ts'
+import { type IntentRecord, type ListingRecord, type ProviderOrderRecord, type ReceiptRecord, type TakeoverRecord } from '../domain/records.ts'
 import type { ReservationSnapshot } from '../domain/reservation.ts'
 import type { SettlementSnapshot, SettlementWrites } from '../domain/settlement.ts'
 import { buildPublicStats, type PublicStatsSnapshot } from '../domain/stats.ts'
@@ -20,6 +21,7 @@ interface ListingRow {
   principal_paid_cents: number
   principal_refunded_cents: number
   settled_at: string | null
+  drops_off_at: string | null
 }
 
 interface IntentRow {
@@ -114,7 +116,7 @@ export async function loadReservationSnapshot(
     listingImageUrl: string | null
   },
 ): Promise<ReservationSnapshot> {
-  const [existing, listing, open, takeover, leader] = await db.batch([
+  const [existing, listing, open, takeover, leader, lastEnded] = await db.batch([
     db.prepare(`SELECT * FROM checkout_intents WHERE owner_id = ? AND request_id = ? LIMIT 1`).bind(input.ownerId, input.requestId),
     db.prepare(`SELECT * FROM listings WHERE canonical_identity = ? LIMIT 1`).bind(input.identity.canonicalKey),
     db
@@ -128,12 +130,14 @@ export async function loadReservationSnapshot(
     db.prepare(`SELECT * FROM takeover_leases WHERE status = 'active' AND ends_at > ? LIMIT 1`).bind(input.nowIso),
     db
       .prepare(
-        `SELECT (principal_paid_cents - principal_refunded_cents) AS amount
+        `SELECT *
          FROM listings
-         WHERE principal_paid_cents > principal_refunded_cents
-         ORDER BY (principal_paid_cents - principal_refunded_cents) DESC, settled_at ASC, id ASC
+         WHERE drops_off_at > ?
+         ORDER BY drops_off_at DESC, settled_at ASC, id ASC
          LIMIT 1`,
-      ),
+      )
+      .bind(input.nowIso),
+    db.prepare(`SELECT MAX(ends_at) AS ended_at FROM takeover_leases WHERE status = 'ended'`),
   ])
 
   const listingRow = firstRow<ListingRow>(listing)
@@ -149,7 +153,11 @@ export async function loadReservationSnapshot(
     listingByIdentity: mapListing(listingRow),
     openTopUpForListing: mapIntent(firstRow<IntentRow>(open)),
     activeTakeover: mapTakeover(firstRow<TakeoverRow>(takeover)),
-    leaderAmountCents: Number(firstRow<{ amount: number }>(leader)?.amount ?? 0),
+    leaderAmountCents: (() => {
+      const row = mapListing(firstRow<ListingRow>(leader))
+      return row ? listingStanding(row, input.nowIso) : 0
+    })(),
+    takeoverIdleSinceIso: firstRow<{ ended_at: string | null }>(lastEnded)?.ended_at ?? null,
     listingTitle: input.listingTitle,
     listingDescription: input.listingDescription,
     listingImageUrl: input.listingImageUrl,
@@ -260,8 +268,8 @@ export async function applySettlement(db: D1Database, writes: SettlementWrites):
         .prepare(
           `INSERT INTO listings (
              id, owner_id, canonical_identity, display_name, target_url, description, image_url,
-             principal_paid_cents, principal_refunded_cents, settled_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             principal_paid_cents, principal_refunded_cents, settled_at, drops_off_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              owner_id = excluded.owner_id,
              display_name = excluded.display_name,
@@ -269,7 +277,8 @@ export async function applySettlement(db: D1Database, writes: SettlementWrites):
              image_url = excluded.image_url,
              principal_paid_cents = excluded.principal_paid_cents,
              principal_refunded_cents = excluded.principal_refunded_cents,
-             settled_at = excluded.settled_at`,
+             settled_at = excluded.settled_at,
+             drops_off_at = excluded.drops_off_at`,
         )
         .bind(
           writes.listing.id,
@@ -282,6 +291,7 @@ export async function applySettlement(db: D1Database, writes: SettlementWrites):
           writes.listing.principalPaidCents,
           writes.listing.principalRefundedCents,
           writes.listing.settledAt,
+          writes.listing.dropsOffAt,
         ),
     )
   }
@@ -351,17 +361,19 @@ export async function loadPublicBoard(
 ): Promise<{
   listings: Listing[]
   takeover: { amountCents: number; display: string; href: string; endsAt: string } | null
+  lastEndedTakeoverAt: string | null
 }> {
   const nowIso = now.toISOString()
   await expireOpenIntents(db, nowIso)
-  const [listingResult, clickResult, takeoverResult] = await db.batch([
+  const [listingResult, clickResult, takeoverResult, lastEnded] = await db.batch([
     db.prepare(
       `SELECT * FROM listings
-       WHERE principal_paid_cents > principal_refunded_cents
-       ORDER BY (principal_paid_cents - principal_refunded_cents) DESC, settled_at ASC, id ASC`,
-    ),
+       WHERE drops_off_at > ?
+       ORDER BY drops_off_at DESC, settled_at ASC, id ASC`,
+    ).bind(nowIso),
     db.prepare(`SELECT listing_id, COUNT(*) AS clicks FROM click_facts GROUP BY listing_id`),
     db.prepare(`SELECT * FROM takeover_leases WHERE status = 'active' AND ends_at > ? LIMIT 1`).bind(nowIso),
+    db.prepare(`SELECT MAX(ends_at) AS ended_at FROM takeover_leases WHERE status = 'ended'`),
   ])
   const clicks = new Map(
     ((clickResult.results as ClickCountRow[] | undefined) ?? []).map((row) => [row.listing_id, Number(row.clicks)]),
@@ -377,8 +389,15 @@ export async function loadPublicBoard(
   return {
     listings: paid,
     takeover: publicTakeover(takeoverRow, takeoverListing, nowIso),
+    lastEndedTakeoverAt: firstRow<{ ended_at: string | null }>(lastEnded)?.ended_at ?? null,
   }
 }
+
+// Rows written before the visitor key existed have no cookie to group on, so each one
+// falls back to its own id and still counts as a single visit.
+const VISITOR_COUNT_SQL = `SELECT COUNT(DISTINCT COALESCE(visitor_key, id)) AS count
+   FROM traffic_facts
+   WHERE kind = 'board' AND occurred_at >= ?`
 
 export async function loadPublicStats(db: D1Database, now: Date): Promise<PublicStatsSnapshot> {
   const nowIso = now.toISOString()
@@ -388,11 +407,11 @@ export async function loadPublicStats(db: D1Database, now: Date): Promise<Public
   await expireOpenIntents(db, nowIso)
 
   const [listings, takeover, online, hour, day, clicks] = await db.batch([
-    db.prepare(`SELECT * FROM listings WHERE principal_paid_cents > principal_refunded_cents`),
+    db.prepare(`SELECT * FROM listings WHERE drops_off_at > ?`).bind(nowIso),
     db.prepare(`SELECT * FROM takeover_leases WHERE status = 'active' AND ends_at > ? LIMIT 1`).bind(nowIso),
-    db.prepare(`SELECT COUNT(*) AS count FROM traffic_facts WHERE kind = 'board' AND occurred_at >= ?`).bind(onlineSince),
-    db.prepare(`SELECT COUNT(*) AS count FROM traffic_facts WHERE kind = 'board' AND occurred_at >= ?`).bind(hourAgo),
-    db.prepare(`SELECT COUNT(*) AS count FROM traffic_facts WHERE kind = 'board' AND occurred_at >= ?`).bind(dayAgo),
+    db.prepare(VISITOR_COUNT_SQL).bind(onlineSince),
+    db.prepare(VISITOR_COUNT_SQL).bind(hourAgo),
+    db.prepare(VISITOR_COUNT_SQL).bind(dayAgo),
     db.prepare(`SELECT COUNT(*) AS count FROM click_facts WHERE occurred_at >= ?`).bind(dayAgo),
   ])
 
@@ -414,10 +433,13 @@ export async function loadPublicStats(db: D1Database, now: Date): Promise<Public
   })
 }
 
-export async function recordTraffic(db: D1Database, kind: 'board' | 'stats', countryCode: string | null): Promise<void> {
+export async function recordTraffic(
+  db: D1Database,
+  input: { kind: 'board' | 'stats'; countryCode: string | null; visitorKey: string },
+): Promise<void> {
   await db
-    .prepare(`INSERT INTO traffic_facts (id, kind, country_code) VALUES (?, ?, ?)`)
-    .bind(crypto.randomUUID(), kind, sanitizeCountry(countryCode))
+    .prepare(`INSERT INTO traffic_facts (id, kind, country_code, visitor_key) VALUES (?, ?, ?, ?)`)
+    .bind(crypto.randomUUID(), input.kind, sanitizeCountry(input.countryCode), input.visitorKey)
     .run()
 }
 
@@ -426,7 +448,7 @@ export async function recordClick(
   input: { listingId: string; referrerHost: string | null; countryCode: string | null },
 ): Promise<ListingRecord | null> {
   const listing = mapListing(await db.prepare(`SELECT * FROM listings WHERE id = ? LIMIT 1`).bind(input.listingId).first<ListingRow>())
-  if (!listing || listingContribution(listing) <= 0) return null
+  if (!listing || listingStanding(listing, new Date().toISOString()) <= 0) return null
   await db
     .prepare(`INSERT INTO click_facts (id, listing_id, referrer_host, country_code) VALUES (?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), listing.id, input.referrerHost, sanitizeCountry(input.countryCode))
@@ -449,18 +471,20 @@ export async function loadReceipt(db: D1Database, intentId: string, nowIso: stri
     ? ((
         await db
           .prepare(
-            `SELECT id, (principal_paid_cents - principal_refunded_cents) AS amount, settled_at
+            `SELECT id, drops_off_at, settled_at
              FROM listings
-             WHERE principal_paid_cents > principal_refunded_cents`,
+             WHERE drops_off_at > ?`,
           )
-          .all<{ id: string; amount: number; settled_at: string | null }>()
+          .bind(nowIso)
+          .all<{ id: string; drops_off_at: string | null; settled_at: string | null }>()
       ).results ?? [])
     : []
   const ranked = rankListings(
     paid.map((row) => ({
       id: row.id,
-      amountCents: Number(row.amount),
+      amountCents: 0,
       settledAt: row.settled_at ?? nowIso,
+      dropsOffAt: row.drops_off_at ?? row.settled_at ?? nowIso,
     })),
   )
   const rank = listing ? ranked.findIndex((row) => row.id === listing.id) + 1 : null
@@ -497,6 +521,7 @@ function mapListing(row: ListingRow | null | undefined): ListingRecord | null {
     principalPaidCents: row.principal_paid_cents,
     principalRefundedCents: row.principal_refunded_cents,
     settledAt: row.settled_at,
+    dropsOffAt: row.drops_off_at,
   }
 }
 

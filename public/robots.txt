@@ -1,0 +1,11 @@
+# Youbid is a public leaderboard. The board, the rules, and the live stats are meant to be
+# read by people, search engines, and assistants alike. Paid-flow routes are not.
+
+User-agent: *
+Allow: /
+Allow: /api/stats
+Disallow: /api/
+Disallow: /go/
+Disallow: /receipts/
+
+Sitemap: https://youbid.lol/sitemap.xml

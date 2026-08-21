@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { sha256Hex } from '../domain/owner.ts'
-import { listingContribution } from '../domain/records.ts'
+import { listingStanding } from '../domain/decay.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
 import { completeListingMetadata, sanitizeListingMetadata } from '../domain/listing-metadata.ts'
 import { planMarkCheckoutReady, planMarkCheckoutUncertain, planReserveCheckout } from '../domain/reservation.ts'
@@ -164,7 +164,10 @@ export const Route = createFileRoute('/api/checkout')({
           }
         }
 
-        const chargeCents = parsed.value.amountCents - (snapshot.listingByIdentity ? listingContribution(snapshot.listingByIdentity) : 0)
+        const liveCents = snapshot.listingByIdentity
+          ? listingStanding(snapshot.listingByIdentity, nowIso)
+          : 0
+        const chargeCents = parsed.value.amountCents - liveCents
 
         if (checkoutMode.mode === 'stripe') {
           if (reserved.state === 'awaiting-payment' && reserved.providerCheckoutId) {

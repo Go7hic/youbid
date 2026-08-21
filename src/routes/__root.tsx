@@ -20,14 +20,18 @@ export const Route = createRootRoute({
       },
       { property: 'og:title', content: 'Youbid · you bid, you get' },
       { property: 'og:description', content: 'Bid for a verified place on the Youbid product leaderboard.' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:site_name', content: 'Youbid' },
+      { property: 'og:url', content: 'https://youbid.lol/' },
       { name: 'twitter:title', content: 'Youbid · you bid, you get' },
-      { property: 'og:image', content: 'https://youbid.lol/favicon.png' },
+      { property: 'og:image', content: 'https://youbid.lol/icon-512.png' },
       { name: 'twitter:card', content: 'summary' },
-      { name: 'twitter:image', content: 'https://youbid.lol/favicon.png' },
+      { name: 'twitter:image', content: 'https://youbid.lol/icon-512.png' },
     ],
     links: [
-      { rel: 'icon', href: '/favicon.png', type: 'image/png' },
-      { rel: 'apple-touch-icon', href: '/favicon.png' },
+      { rel: 'icon', href: '/favicon.ico', sizes: '128x128' },
+      { rel: 'apple-touch-icon', href: '/icon-512.png' },
+      { rel: 'alternate', type: 'text/plain', href: '/llms.txt' },
       {
         rel: 'stylesheet',
         href: appCss,
@@ -37,11 +41,51 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+// Every claim here is also stated in visible copy on the board or in /rules.
+const SITE_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://youbid.lol/#org',
+      name: 'Youbid',
+      url: 'https://youbid.lol/',
+      logo: 'https://youbid.lol/icon-512.png',
+      sameAs: ['https://github.com/Go7hic/youbid'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://youbid.lol/#site',
+      name: 'Youbid',
+      url: 'https://youbid.lol/',
+      publisher: { '@id': 'https://youbid.lol/#org' },
+      inLanguage: 'en',
+    },
+    {
+      '@type': 'WebApplication',
+      name: 'Youbid',
+      url: 'https://youbid.lol/',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description:
+        'A public paid leaderboard. Bid on a URL or X handle to rank. Every amount falls 3% a day, so rank tracks what bidders pay now.',
+      offers: {
+        '@type': 'Offer',
+        price: '2.00',
+        priceCurrency: 'USD',
+        description: 'Minimum bid for a ranked placement. Bids are whole dollars in $1 steps.',
+      },
+      publisher: { '@id': 'https://youbid.lol/#org' },
+    },
+  ],
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_SCHEMA) }} />
       </head>
       <body>
         {children}

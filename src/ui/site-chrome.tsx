@@ -7,7 +7,7 @@ export function SiteHeader(input: {
   return (
     <header className="site-header">
       <Link className="wordmark" to="/" aria-label="Youbid home">
-        <img className="wordmark-logo" src="/logo.avif" alt="" width="42" height="42" />
+        <img className="wordmark-logo" src="/logo.avif" alt="" width="50" height="50" />
         youbid<span>.lol</span>
       </Link>
       <div className="live-pill" aria-live="polite">
@@ -25,7 +25,7 @@ export function SiteHeader(input: {
 export function SiteFooter() {
   return (
     <footer>
-      <p>Paid placement, ranked by verified principal. No revenue share.</p>
+      <p>Paid placement, ranked by current verified bid. Amounts fall 3% a day. No revenue share.</p>
       <nav className="footer-nav">
         <Link to="/rules">Rules</Link>
         <Link to="/stats">Stats</Link>

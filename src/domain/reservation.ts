@@ -1,10 +1,10 @@
+import { listingStanding } from './decay.ts'
 import type { ProductIdentity } from './identity.ts'
-import { MINIMUM_BID_CENTS, takeoverPrice } from './money.ts'
+import { MINIMUM_BID_CENTS, takeoverIdleMs, takeoverPrice } from './money.ts'
 import { canRaiseListing } from './owner.ts'
 import {
   intentIsExpired,
   isOpenIntent,
-  listingContribution,
   type IntentRecord,
   type ListingRecord,
   type PurchaseKind,
@@ -24,6 +24,7 @@ export interface ReservationSnapshot {
   openTopUpForListing: IntentRecord | null
   activeTakeover: TakeoverRecord | null
   leaderAmountCents: number
+  takeoverIdleSinceIso: string | null
   listingTitle: string
   listingDescription: string
   listingImageUrl: string | null
@@ -48,7 +49,10 @@ export function planReserveCheckout(
   }
 
   if (snapshot.kind === 'takeover') {
-    const required = takeoverPrice(snapshot.leaderAmountCents)
+    const required = takeoverPrice(
+      snapshot.leaderAmountCents,
+      takeoverIdleMs(snapshot.nowIso, snapshot.takeoverIdleSinceIso),
+    )
     if (snapshot.targetAmountCents < required) {
       return {
         kind: 'reject',
@@ -76,14 +80,14 @@ export function planReserveCheckout(
 
   const listing = snapshot.listingByIdentity
   if (listing) {
-    const current = listingContribution(listing)
-    // A fully refunded listing keeps its row but leaves the board, so its identity
-    // has to become claimable again instead of staying locked to the refunded owner.
+    const current = listingStanding(listing, snapshot.nowIso)
+    // A listing at or below the decay floor leaves the board, so its identity
+    // becomes claimable again instead of staying locked to the previous owner.
     if (current > 0 && !canRaiseListing(snapshot.ownerId, listing)) {
       return { kind: 'reject', status: 409, message: 'Only the owning visitor can raise this listing.' }
     }
-    if (snapshot.targetAmountCents <= current) {
-      return { kind: 'reject', status: 400, message: 'Raise the bid above the listing’s current paid amount.' }
+    if (snapshot.kind !== 'takeover' && snapshot.targetAmountCents <= current) {
+      return { kind: 'reject', status: 400, message: 'Raise the bid above the listing’s current amount.' }
     }
     if (
       snapshot.openTopUpForListing &&

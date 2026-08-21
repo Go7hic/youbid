@@ -1,18 +1,17 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { getRequestHeader } from '@tanstack/react-start/server'
 import { useEffect } from 'react'
 
 import { formatUsd } from '../domain/money.ts'
 import type { PublicStatsSnapshot } from '../domain/stats.ts'
 import { database } from '../server/env.ts'
-import { loadPublicStats, recordTraffic } from '../server/db.ts'
+import { loadPublicStats } from '../server/db.ts'
 import { SiteFooter, SiteHeader } from '../ui/site-chrome.tsx'
 
+// This loader re-runs every few seconds. Recording a traffic fact here would bill one
+// open tab as hundreds of visits an hour and count nothing anyone reads.
 const loadStats = createServerFn({ method: 'GET' }).handler(async () => {
-  const db = database()
-  await recordTraffic(db, 'stats', getRequestHeader('CF-IPCountry') ?? null)
-  return loadPublicStats(db, new Date())
+  return loadPublicStats(database(), new Date())
 })
 
 export const Route = createFileRoute('/stats')({

@@ -40,6 +40,7 @@ export interface ListingRecord {
   principalPaidCents: number
   principalRefundedCents: number
   settledAt: string | null
+  dropsOffAt: string | null
 }
 
 export interface ProviderOrderRecord {

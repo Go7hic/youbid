@@ -1,0 +1,39 @@
+# Youbid
+
+> Youbid is a public paid leaderboard at youbid.lol. Anyone can pay to place a URL or X handle on the board. Rank is the bidder's current balance, which falls 3% a day, so the board shows what people are paying now rather than what they once paid.
+
+## Primary Links
+
+- [Board](https://youbid.lol/): the live leaderboard and the bid form.
+- [Rules](https://youbid.lol/rules): the public ranking contract. Markdown: [rules.md](https://youbid.lol/rules.md).
+- [Live stats](https://youbid.lol/stats): visitors, live volume, first place, recent settlements.
+- [Stats JSON](https://youbid.lol/api/stats): the same figures as a JSON document.
+- [Source](https://github.com/Go7hic/youbid): the implementation, MIT licensed.
+
+## How ranking works
+
+- Bids are whole US dollars: $2 minimum, $1 steps. Amounts are stored as integer cents.
+- Every live amount decays 3% a day from the moment its payment settled. A listing leaves the board when it falls below the $2 floor.
+- Rank is current balance, then whoever settled first, then a stable id. Paying more, more recently, ranks higher.
+- Raising a listing costs the difference between the target and that listing's current decayed amount, not its historical total.
+- Only the visitor who first paid a listing can raise it, and only while it is still on the board.
+- Decay makes revenue recurring and keeps the mid-board moving. It does not make the top winnable: someone who keeps paying keeps #1.
+
+## Page-one takeover
+
+- A takeover locks the first page for three hours and sits in front of the ranked list rather than replacing it. Only one runs at a time.
+- The price is a Dutch auction. It opens at four times current first place and slides down to 1.2× over 24 hours, then waits there until someone buys.
+- A refunded takeover ends its lease early.
+
+## Payments
+
+- Hosted Stripe Checkout, one ad-hoc line item per bid. There is no Stripe Price catalog.
+- Opening or cancelling checkout never changes the board. Only a verified, idempotent paid webhook does.
+- Refunds are absolute provider snapshots: a refund lowers the listing's balance in proportion to the refunded principal. A listing refunded to zero leaves the board and its identity becomes claimable again.
+
+## About
+
+Youbid runs on TanStack Start and Cloudflare Workers, with D1 as the single authority for
+listings, checkout intents, payments, and takeover leases. The product idea and board layout
+take cues from outbid.lol; Youbid is a separate implementation. There is no revenue sharing,
+no ad network, and no API key to obtain: the board is the product.

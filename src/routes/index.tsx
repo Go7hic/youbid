@@ -5,28 +5,37 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Listing } from '../data/listings.ts'
 import { boardPage } from '../domain/board.ts'
+import { decayedBalanceFromDropOff } from '../domain/decay.ts'
 import { normalizeIdentity } from '../domain/identity.ts'
 import {
   BID_STEP_CENTS,
   MINIMUM_BID_CENTS,
   amountToClaim,
   formatUsd,
+  takeoverIdleMs,
   takeoverPrice,
 } from '../domain/money.ts'
 import { projectedRank, rankListings } from '../domain/ranking.ts'
 import { database, publicCheckoutConfig } from '../server/env.ts'
 import { loadPublicBoard, loadPublicStats, recordTraffic } from '../server/db.ts'
+import { resolveVisitorKey } from '../server/visitor-cookie.ts'
 import { SiteFooter, SiteHeader } from '../ui/site-chrome.tsx'
 
 const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
   const db = database()
   const now = new Date()
-  await recordTraffic(db, 'board', getRequestHeader('CF-IPCountry') ?? null)
+  await recordTraffic(db, {
+    kind: 'board',
+    countryCode: getRequestHeader('CF-IPCountry') ?? null,
+    visitorKey: resolveVisitorKey(),
+  })
   const board = await loadPublicBoard(db, now)
   const stats = await loadPublicStats(db, now)
   return {
     listings: board.listings,
     takeover: board.takeover,
+    lastEndedTakeoverAt: board.lastEndedTakeoverAt,
+    nowIso: now.toISOString(),
     checkout: publicCheckoutConfig(),
     visitorsOnline: stats.visitorsOnline,
     visitorsLastHour: stats.visitorsLastHour,
@@ -43,7 +52,19 @@ function Home() {
   const router = useRouter()
   const bidFormRef = useRef<HTMLElement>(null)
   const listings = data.listings
-  const rankedListings = useMemo(() => rankListings(listings), [listings])
+  const [clockIso, setClockIso] = useState(data.nowIso)
+  const rankedListings = useMemo(
+    () =>
+      rankListings(
+        listings
+          .map((listing) => ({
+            ...listing,
+            amountCents: decayedBalanceFromDropOff(listing.dropsOffAt, clockIso),
+          }))
+          .filter((listing) => listing.amountCents > 0 && listing.dropsOffAt > clockIso),
+      ),
+    [listings, clockIso],
+  )
   const leaderAmount = rankedListings[0]?.amountCents ?? MINIMUM_BID_CENTS
   const [amountCents, setAmountCents] = useState(() => amountToClaim(leaderAmount))
   const [identityInput, setIdentityInput] = useState('')
@@ -93,6 +114,14 @@ function Home() {
   }
 
   useEffect(() => {
+    setClockIso(new Date().toISOString())
+    const timer = window.setInterval(() => {
+      setClockIso(new Date().toISOString())
+    }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
     const result = normalizeIdentity(identityInput)
     if (!result.ok) return
     const timer = window.setTimeout(() => {
@@ -128,6 +157,10 @@ function Home() {
     }
   }
   const activeTakeover = data.takeover
+  const takeoverAmount = takeoverPrice(
+    leaderAmount,
+    takeoverIdleMs(clockIso, data.lastEndedTakeoverAt),
+  )
 
   function scrollToBidForm() {
     bidFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -142,7 +175,7 @@ function Home() {
 
   function chooseTakeover() {
     setTakeover(true)
-    setAmountCents(takeoverPrice(leaderAmount))
+    setAmountCents(takeoverAmount)
     setIdentityError('')
     scrollToBidForm()
   }
@@ -346,7 +379,8 @@ function Home() {
         <section className="takeover-offer" aria-label="Leaderboard takeover">
           <p>
             <strong>New: Leaderboard takeover.</strong> Own the first page for 3 hours —{' '}
-            {formatUsd(takeoverPrice(leaderAmount))} <span>(2× current #1)</span>
+            {formatUsd(takeoverAmount)}{' '}
+            <span>(falls from 4× to 1.2× #1 over 24 hours)</span>
           </p>
           <button type="button" onClick={chooseTakeover} disabled={Boolean(activeTakeover)}>
             {activeTakeover ? 'Active' : 'Take over'}
@@ -393,7 +427,7 @@ function Home() {
         ) : (
           <div className="listing-stack">
             {board.listings.length === 0 ? (
-              <p className="empty-note">No paid listings yet. The first verified bid takes #1.</p>
+              <p className="empty-note">No live listings yet. The first verified bid takes #1. Amounts fall 3% a day.</p>
             ) : null}
             {board.listings.map((listing, index) => {
               const rank = board.firstRank + index
@@ -423,7 +457,13 @@ function Home() {
                       {listing.domain}
                     </a>
                     <p>{listing.description}</p>
-                    <small>{listing.age} <span className="meta-dot" aria-hidden="true">•</span> <strong>{listing.clicks.toLocaleString()} clicks</strong></small>
+                    <small>
+                      {listing.age}
+                      <span className="meta-dot" aria-hidden="true">•</span>
+                      on the board until {listing.dropsOffAt.slice(0, 10)}
+                      <span className="meta-dot" aria-hidden="true">•</span>
+                      <strong>{listing.clicks.toLocaleString()} clicks</strong>
+                    </small>
                   </div>
                   <button className="listing-price" type="button" onClick={() => chooseRank(listing)} aria-label={`Current rank amount ${formatUsd(listing.amountCents)}`}>
                     {formatUsd(listing.amountCents)}

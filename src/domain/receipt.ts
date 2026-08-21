@@ -1,7 +1,7 @@
 import type { CheckoutStatus } from './checkout.ts'
+import { listingStanding } from './decay.ts'
 import {
   intentIsExpired,
-  listingContribution,
   type IntentRecord,
   type ListingRecord,
   type TakeoverRecord,
@@ -45,7 +45,7 @@ export function buildPublicReceipt(input: {
     intentId: input.intent.id,
     status,
     display: input.listing?.displayName ?? null,
-    amountCents: input.listing ? listingContribution(input.listing) : input.intent.targetAmountCents,
+    amountCents: input.listing ? listingStanding(input.listing, input.nowIso) : input.intent.targetAmountCents,
     rank: status === 'ranked' || status === 'takeover-active' ? input.rank : null,
     takeoverEndsAt: takeoverActive ? input.takeover?.endsAt ?? null : null,
     listingId: input.listing?.id ?? input.intent.listingId,

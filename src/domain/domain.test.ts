@@ -4,8 +4,17 @@ import test from 'node:test'
 import { boardPage } from './board.ts'
 import { settleVerifiedPaidEvent } from './checkout.ts'
 import { normalizeIdentity } from './identity.ts'
+import {
+  DAILY_DECAY,
+  DECAY_FLOOR_CENTS,
+  decayedBalance,
+  decayedBalanceFromDropOff,
+  dropsOffAt,
+  listingStanding,
+  toppedUpDropsOffAt,
+} from './decay.ts'
 import { completeListingMetadata } from './listing-metadata.ts'
-import { amountToClaim, dollarsToCents, takeoverPrice } from './money.ts'
+import { TAKEOVER_FALL_MS, amountToClaim, dollarsToCents, takeoverIdleMs, takeoverPrice } from './money.ts'
 import { canRaiseListing, signOwnerCookie, verifyOwnerCookie } from './owner.ts'
 import { projectedRank, rankListings } from './ranking.ts'
 import { buildPublicReceipt } from './receipt.ts'
@@ -15,9 +24,9 @@ import { planPaidSettlement, planRefundSettlement } from './settlement.ts'
 import { buildPublicStats } from './stats.ts'
 
 const listings = [
-  { id: 'b', amountCents: 10_000, settledAt: '2026-01-02T00:00:00Z' },
-  { id: 'a', amountCents: 10_000, settledAt: '2026-01-01T00:00:00Z' },
-  { id: 'c', amountCents: 5_000, settledAt: '2026-01-03T00:00:00Z' },
+  { id: 'b', amountCents: 10_000, settledAt: '2026-01-02T00:00:00Z', dropsOffAt: '2026-06-02T00:00:00Z' },
+  { id: 'a', amountCents: 10_000, settledAt: '2026-01-01T00:00:00Z', dropsOffAt: '2026-06-01T00:00:00Z' },
+  { id: 'c', amountCents: 5_000, settledAt: '2026-01-03T00:00:00Z', dropsOffAt: '2026-05-01T00:00:00Z' },
 ]
 
 const identity = {
@@ -38,6 +47,7 @@ function listing(overrides: Partial<ListingRecord> = {}): ListingRecord {
     principalPaidCents: 10_000,
     principalRefundedCents: 0,
     settledAt: '2026-08-21T00:00:00.000Z',
+    dropsOffAt: null,
     ...overrides,
   }
 }
@@ -62,16 +72,56 @@ function intent(overrides: Partial<IntentRecord> = {}): IntentRecord {
   }
 }
 
-test('money stays in integer cents and takeover is exactly 2x', () => {
+test('money stays in integer cents', () => {
   assert.equal(dollarsToCents(10_001), 1_000_100)
   assert.equal(amountToClaim(310_000), 310_100)
-  assert.equal(takeoverPrice(1_000_000), 2_000_000)
+})
+
+test('a takeover opens at 4x and falls to 1.2x over a day', () => {
+  const leader = 10_000
+  assert.equal(takeoverPrice(leader, 0), 40_000)
+  assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS), 12_000)
+  assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS / 2), 26_000)
+  assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS * 2), 12_000)
+  assert.ok(takeoverPrice(leader, TAKEOVER_FALL_MS / 4) > takeoverPrice(leader, TAKEOVER_FALL_MS / 2))
+  assert.equal(takeoverPrice(0, 0), 200)
+  assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', null), 0)
+  assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', '2026-08-21T06:00:00.000Z'), 6 * 60 * 60 * 1000)
 })
 
 test('ranking is deterministic and previews equal amounts behind settled bids', () => {
-  assert.deepEqual(rankListings(listings).map(({ id }) => id), ['a', 'b', 'c'])
+  assert.deepEqual(rankListings(listings).map(({ id }) => id), ['b', 'a', 'c'])
   assert.equal(projectedRank(10_001, listings), 1)
   assert.equal(projectedRank(10_000, listings), 3)
+})
+
+test('decayed balance falls and drop-off order matches live balance order', () => {
+  const settled = '2026-01-01T00:00:00.000Z'
+  const later = '2026-02-01T00:00:00.000Z'
+  const high = decayedBalance(10_000, settled, later)
+  const low = decayedBalance(5_000, settled, later)
+  assert.ok(high < 10_000)
+  assert.ok(high > low)
+  assert.ok(high > 0)
+  assert.equal(decayedBalance(100, settled, later), 0)
+
+  const now = '2026-03-01T00:00:00.000Z'
+  const richer = dropsOffAt(20_000, settled)
+  const poorer = dropsOffAt(8_000, settled)
+  assert.ok(richer > poorer)
+  const fromDrop = [
+    { id: 'rich', amount: decayedBalanceFromDropOff(richer, now), t: richer },
+    { id: 'poor', amount: decayedBalanceFromDropOff(poorer, now), t: poorer },
+  ]
+  const byAmount = [...fromDrop].sort((left, right) => right.amount - left.amount).map((row) => row.id)
+  const byDrop = [...fromDrop].sort((left, right) => right.t.localeCompare(left.t)).map((row) => row.id)
+  assert.deepEqual(byAmount, byDrop)
+
+  const next = toppedUpDropsOffAt(poorer, 5_000, now)
+  assert.ok(next > poorer)
+  assert.ok(next > now)
+  assert.equal(DAILY_DECAY, 0.97)
+  assert.equal(DECAY_FLOOR_CENTS, 200)
 })
 
 test('identity normalization accepts public URLs and handles, rejects invite and script URLs', () => {
@@ -157,6 +207,7 @@ test('reservation is idempotent, blocks foreign raises, and recovers uncertain c
     openTopUpForListing: null,
     activeTakeover: null,
     leaderAmountCents: 5_000,
+    takeoverIdleSinceIso: null,
     listingTitle: 'Example',
     listingDescription: 'A product',
     listingImageUrl: null,
@@ -272,6 +323,88 @@ test('top-up settlement applies the absolute target, not the charged delta', () 
   if (plan.kind !== 'settle') return
   assert.equal(plan.writes.listing?.principalPaidCents, 15_000)
   assert.equal(plan.writes.listing?.principalRefundedCents, 0)
+  assert.ok(plan.writes.listing?.dropsOffAt)
+})
+
+test('a rank raise charges the decayed standing, not the historical ledger', () => {
+  const settled = '2026-01-01T00:00:00.000Z'
+  const now = '2026-01-11T00:00:00.000Z'
+  const existing = listing({
+    principalPaidCents: 10_000,
+    settledAt: settled,
+    dropsOffAt: dropsOffAt(10_000, settled),
+  })
+  const live = listingStanding(existing, now)
+  assert.ok(live < 10_000)
+  assert.ok(live >= DECAY_FLOOR_CENTS)
+
+  const settle = planPaidSettlement(
+    {
+      receipts: [],
+      intent: intent({
+        id: 'intent_decay',
+        listingId: 'listing_1',
+        targetAmountCents: live + 100,
+        requestId: 'req_decay',
+      }),
+      listing: existing,
+      orders: [
+        {
+          providerOrderId: 'pi_old',
+          intentId: 'intent_1',
+          providerStatus: 'paid',
+          principalPaidCents: 10_000,
+          principalRefundedCents: 0,
+          snapshotHash: 'hash_old',
+          occurredAt: settled,
+        },
+      ],
+      activeTakeover: null,
+      identity,
+    },
+    {
+      eventId: 'evt_decay',
+      payloadHash: 'hash_decay',
+      eventType: 'checkout.session.completed',
+      providerOrderId: 'pi_decay',
+      intentId: 'intent_decay',
+      principalPaidCents: 100,
+      principalRefundedCents: 0,
+      occurredAt: now,
+    },
+    { listingId: 'listing_1', takeoverId: 'lease_x' },
+  )
+  assert.equal(settle.kind, 'settle')
+  if (settle.kind !== 'settle') return
+  assert.ok(settle.writes.listing?.dropsOffAt && settle.writes.listing.dropsOffAt > existing.dropsOffAt!)
+
+  const staleLedger = planPaidSettlement(
+    {
+      receipts: [],
+      intent: intent({
+        id: 'intent_stale',
+        listingId: 'listing_1',
+        targetAmountCents: 15_000,
+        requestId: 'req_stale',
+      }),
+      listing: existing,
+      orders: [],
+      activeTakeover: null,
+      identity,
+    },
+    {
+      eventId: 'evt_stale',
+      payloadHash: 'hash_stale',
+      eventType: 'checkout.session.completed',
+      providerOrderId: 'pi_stale',
+      intentId: 'intent_stale',
+      principalPaidCents: 5_000,
+      principalRefundedCents: 0,
+      occurredAt: now,
+    },
+    { listingId: 'listing_1', takeoverId: 'lease_x' },
+  )
+  assert.equal(staleLedger.kind, 'needs-support')
 })
 
 test('late takeover payment does not create a second active lease', () => {
@@ -369,6 +502,7 @@ test('a fully refunded listing releases its identity to the next bidder', () => 
     openTopUpForListing: null,
     activeTakeover: null,
     leaderAmountCents: 0,
+    takeoverIdleSinceIso: null,
     listingTitle: 'Example',
     listingDescription: 'A product',
     listingImageUrl: null,
@@ -381,6 +515,49 @@ test('a fully refunded listing releases its identity to the next bidder', () => 
     { intentId: 'intent_10', expiresAt: '2026-08-21T02:30:00.000Z' },
   )
   assert.equal(stillOwned.kind, 'reject')
+})
+
+test('a takeover checkout is rejected below the live Dutch price', () => {
+  const snapshot = {
+    nowIso: '2026-08-21T12:00:00.000Z',
+    ownerId: 'owner_1',
+    requestId: 'req_takeover',
+    payloadHash: 'hash_takeover',
+    identity,
+    targetAmountCents: 20_000,
+    kind: 'takeover' as const,
+    existingByRequest: null,
+    listingByIdentity: null,
+    openTopUpForListing: null,
+    activeTakeover: null,
+    leaderAmountCents: 10_000,
+    takeoverIdleSinceIso: null,
+    listingTitle: 'Example',
+    listingDescription: 'A product',
+    listingImageUrl: null,
+  }
+  const tooCheap = planReserveCheckout(snapshot, {
+    intentId: 'intent_cheap',
+    expiresAt: '2026-08-21T12:30:00.000Z',
+  })
+  assert.equal(tooCheap.kind, 'reject')
+
+  const atOpen = planReserveCheckout(
+    { ...snapshot, targetAmountCents: 40_000 },
+    { intentId: 'intent_open', expiresAt: '2026-08-21T12:30:00.000Z' },
+  )
+  assert.equal(atOpen.kind, 'create')
+
+  const afterADay = planReserveCheckout(
+    {
+      ...snapshot,
+      nowIso: '2026-08-22T12:00:00.000Z',
+      takeoverIdleSinceIso: '2026-08-21T12:00:00.000Z',
+      targetAmountCents: 12_000,
+    },
+    { intentId: 'intent_floor', expiresAt: '2026-08-22T12:30:00.000Z' },
+  )
+  assert.equal(afterADay.kind, 'create')
 })
 
 test('replaying a paid checkout request returns the receipt instead of a new session', () => {
@@ -398,6 +575,7 @@ test('replaying a paid checkout request returns the receipt instead of a new ses
       openTopUpForListing: null,
       activeTakeover: null,
       leaderAmountCents: 10_000,
+      takeoverIdleSinceIso: null,
       listingTitle: 'Example',
       listingDescription: 'A product',
       listingImageUrl: null,

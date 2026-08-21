@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { listingContribution } from '../domain/records.ts'
+import { listingStanding } from '../domain/decay.ts'
 import { database, isLocalDevelopment, stripeIsConfigured } from '../server/env.ts'
 import { expireOpenIntents, loadIntent, loadSettlementSnapshot } from '../server/db.ts'
 import { persistPaidEvent } from '../server/settlement-flow.ts'
@@ -44,7 +44,7 @@ export const Route = createFileRoute('/api/mock/settle')({
         }
 
         const snapshot = await loadSettlementSnapshot(db, { eventId: `mock_${intent.id}`, intentId: intent.id, nowIso })
-        const current = snapshot.listing ? listingContribution(snapshot.listing) : 0
+        const current = snapshot.listing ? listingStanding(snapshot.listing, nowIso) : 0
         const plan = await persistPaidEvent(
           db,
           {

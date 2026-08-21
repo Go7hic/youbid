@@ -2,12 +2,13 @@ export interface RankableListing {
   id: string
   amountCents: number
   settledAt: string
+  dropsOffAt: string
 }
 
 export function rankListings<T extends RankableListing>(listings: readonly T[]): T[] {
   return [...listings].sort(
     (left, right) =>
-      right.amountCents - left.amountCents ||
+      right.dropsOffAt.localeCompare(left.dropsOffAt) ||
       left.settledAt.localeCompare(right.settledAt) ||
       left.id.localeCompare(right.id),
   )

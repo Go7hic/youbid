@@ -61,6 +61,11 @@ export function isLocalDevelopment(config: ProductionConfig = readProductionConf
   return isLocalAppUrl(config.appUrl)
 }
 
+/** Absolute origin without a trailing slash, for canonical links in machine-readable routes. */
+export function siteOrigin(config: ProductionConfig = readProductionConfig()): string {
+  return (config.appUrl ?? 'https://youbid.lol').replace(/\/+$/, '')
+}
+
 export function publicCheckoutConfig(config: ProductionConfig = readProductionConfig()): PublicCheckoutConfig {
   const turnstileSiteKey = config.turnstileSiteKey ?? null
   if (config.stripeSecretKey && config.appUrl) {

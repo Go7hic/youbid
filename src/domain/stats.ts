@@ -1,4 +1,5 @@
-import { listingContribution, type ListingRecord, type TakeoverRecord } from './records.ts'
+import { listingDropsOffAt, listingStanding } from './decay.ts'
+import { type ListingRecord, type TakeoverRecord } from './records.ts'
 import { rankListings } from './ranking.ts'
 
 export interface PublicSettlementFact {
@@ -41,12 +42,13 @@ export interface StatsFacts {
 }
 
 export function buildPublicStats(facts: StatsFacts): PublicStatsSnapshot {
-  const live = facts.listings.filter((listing) => listingContribution(listing) > 0 && listing.settledAt)
+  const live = facts.listings.filter((listing) => listingStanding(listing, facts.nowIso) > 0 && listing.settledAt)
   const ranked = rankListings(
     live.map((listing) => ({
       id: listing.id,
-      amountCents: listingContribution(listing),
+      amountCents: listingStanding(listing, facts.nowIso),
       settledAt: listing.settledAt ?? facts.nowIso,
+      dropsOffAt: listingDropsOffAt(listing),
     })),
   )
   const rankById = new Map(ranked.map((listing, index) => [listing.id, index + 1]))
@@ -56,7 +58,7 @@ export function buildPublicStats(facts: StatsFacts): PublicStatsSnapshot {
     .map((listing) => ({
       listingId: listing.id,
       display: listing.displayName,
-      amountCents: listingContribution(listing),
+      amountCents: listingStanding(listing, facts.nowIso),
       settledAt: listing.settledAt ?? facts.nowIso,
       rank: rankById.get(listing.id) ?? live.length,
     }))
@@ -76,14 +78,14 @@ export function buildPublicStats(facts: StatsFacts): PublicStatsSnapshot {
     visitorsLastHour: facts.visitorsLastHour,
     visitorsLast24h: facts.visitorsLast24h,
     clicksLast24h: facts.clicksLast24h,
-    volumeLiveCents: live.reduce((sum, listing) => sum + listingContribution(listing), 0),
+    volumeLiveCents: live.reduce((sum, listing) => sum + listingStanding(listing, facts.nowIso), 0),
     firstPlaceCents: ranked[0]?.amountCents ?? 0,
     takeover:
       activeTakeover && takeoverListing
         ? {
             listingId: takeoverListing.id,
             display: facts.takeoverDisplay ?? takeoverListing.displayName,
-            amountCents: listingContribution(takeoverListing),
+            amountCents: listingStanding(takeoverListing, facts.nowIso),
             endsAt: activeTakeover.endsAt,
           }
         : null,
