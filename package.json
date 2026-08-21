@@ -1,19 +1,46 @@
 {
-  "name": "youbit",
-  "version": "0.0.0",
+  "name": "youbid",
   "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "test": "vitest",
-    "cf-typegen": "wrangler types"
+    "dev": "vite dev --port 3000",
+    "generate-routes": "tsr generate",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/domain/domain.test.ts src/server/stripe.test.ts src/server/checkout-flow.test.ts src/server/scrape.test.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cf-typegen": "wrangler types",
+    "dry-run": "vite build && wrangler deploy --dry-run",
+    "deploy": "vite build && wrangler deploy"
+  },
+  "packageManager": "pnpm@10.30.3",
+  "dependencies": {
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-start": "latest",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "stripe": "^22.5.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.22.0",
-    "@types/node": "^26.2.0",
-    "typescript": "^5.5.2",
-    "vitest": "~4.1.0",
-    "wrangler": "^4.125.0"
+    "@cloudflare/vite-plugin": "^1.26.0",
+    "@tanstack/router-cli": "^1.132.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0",
+    "wrangler": "^4.70.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss",
+      "sharp",
+      "workerd"
+    ]
   }
 }

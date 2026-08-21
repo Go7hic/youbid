@@ -1,0 +1,11 @@
+# Copy to .dev.vars for local adapter work. Never commit real values.
+# Production APP_URL is a wrangler var (https://youbid.lol).
+# Production secrets: wrangler secret put OWNER_COOKIE_SECRET|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET
+# Local may stay empty. Production live keys: wrangler secret put STRIPE_SECRET_KEY (sk_live_) and STRIPE_WEBHOOK_SECRET (whsec_).
+# No Dashboard Product catalog — Checkout uses price_data.unit_amount.
+APP_URL="http://localhost:3000"
+OWNER_COOKIE_SECRET="youbid-local-owner-cookie-secret"
+STRIPE_SECRET_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+TURNSTILE_SECRET=""
+TURNSTILE_SITE_KEY=""

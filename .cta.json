@@ -1,0 +1,19 @@
+{
+  "projectName": "youbid-tanstack",
+  "mode": "file-router",
+  "typescript": true,
+  "tailwind": false,
+  "packageManager": "npm",
+  "git": true,
+  "install": true,
+  "intent": false,
+  "addOnOptions": {},
+  "projectPreset": "blank",
+  "includeExamples": false,
+  "routerOnly": false,
+  "version": 1,
+  "framework": "react",
+  "chosenAddOns": [
+    "cloudflare"
+  ]
+}
