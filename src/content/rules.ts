@@ -13,9 +13,9 @@ export const RULES_SECTIONS: readonly RulesSection[] = [
   {
     heading: 'Bidding',
     bullets: [
-      'Whole US dollars, $2 minimum, $1 steps.',
+      'US dollars, $0.50 minimum, $0.50 steps.',
       'Every live amount falls 3% a day. Rank is current balance, then who settled first.',
-      'A listing drops off when it falls below $2. Stop paying and you slide; keep paying and you stay.',
+      'A listing drops off when it falls below $0.50. Stop paying and you slide; keep paying and you stay.',
       'A bid below first place still lands at whatever rank that amount can buy. A whale who keeps paying still holds #1.',
       'To raise an existing listing, enter the same URL or @handle and pay the difference to the current amount.',
       'Only the visitor who first paid a listing can raise it while it is still on the board.',
@@ -44,7 +44,7 @@ export const RULES_SECTIONS: readonly RulesSection[] = [
     heading: 'Refunds',
     bullets: [
       'A refund lowers that listing’s current balance in proportion to the refunded principal. We do not invent a new number.',
-      'A listing refunded to zero, or decayed below $2, leaves the board. Someone else can then bid that identity.',
+      'A listing refunded to zero, or decayed below $0.50, leaves the board. Someone else can then bid that identity.',
       'A full refund on a takeover ends the lease early.',
     ],
   },

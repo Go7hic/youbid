@@ -74,9 +74,9 @@ const SITE_SCHEMA = {
         'A public paid leaderboard. Bid on a URL or X handle to rank. Every amount falls 3% a day, so rank tracks what bidders pay now.',
       offers: {
         '@type': 'Offer',
-        price: '2.00',
+        price: '0.50',
         priceCurrency: 'USD',
-        description: 'Minimum bid for a ranked placement. Bids are whole dollars in $1 steps.',
+        description: 'Minimum bid for a ranked placement. Bids are $0.50 and up, in $0.50 steps.',
       },
       publisher: { '@id': 'https://youbid.lol/#org' },
     },

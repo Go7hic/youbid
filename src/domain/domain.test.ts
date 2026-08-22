@@ -15,7 +15,7 @@ import {
   toppedUpDropsOffAt,
 } from './decay.ts'
 import { completeListingMetadata } from './listing-metadata.ts'
-import { TAKEOVER_FALL_MS, amountToClaim, dollarsToCents, takeoverIdleMs, takeoverPrice } from './money.ts'
+import { TAKEOVER_FALL_MS, amountToClaim, dollarsToCents, formatUsd, takeoverIdleMs, takeoverPrice } from './money.ts'
 import { canRaiseListing, signOwnerCookie, verifyOwnerCookie } from './owner.ts'
 import { projectedRank, rankListings } from './ranking.ts'
 import { buildPublicReceipt } from './receipt.ts'
@@ -75,7 +75,11 @@ function intent(overrides: Partial<IntentRecord> = {}): IntentRecord {
 
 test('money stays in integer cents', () => {
   assert.equal(dollarsToCents(10_001), 1_000_100)
-  assert.equal(amountToClaim(310_000), 310_100)
+  assert.equal(dollarsToCents(0.5), 50)
+  assert.equal(amountToClaim(310_000), 310_050)
+  assert.equal(amountToClaim(50), 100)
+  assert.equal(formatUsd(50), '$0.50')
+  assert.equal(formatUsd(200), '$2')
 })
 
 test('a takeover opens at 4x and falls to 1.2x over a day', () => {
@@ -85,7 +89,7 @@ test('a takeover opens at 4x and falls to 1.2x over a day', () => {
   assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS / 2), 26_000)
   assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS * 2), 12_000)
   assert.ok(takeoverPrice(leader, TAKEOVER_FALL_MS / 4) > takeoverPrice(leader, TAKEOVER_FALL_MS / 2))
-  assert.equal(takeoverPrice(0, 0), 200)
+  assert.equal(takeoverPrice(0, 0), 50)
   assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', null), 0)
   assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', '2026-08-21T06:00:00.000Z'), 6 * 60 * 60 * 1000)
 })
@@ -122,7 +126,7 @@ test('decayed balance falls and drop-off order matches live balance order', () =
   assert.ok(next > poorer)
   assert.ok(next > now)
   assert.equal(DAILY_DECAY, 0.97)
-  assert.equal(DECAY_FLOOR_CENTS, 200)
+  assert.equal(DECAY_FLOOR_CENTS, 50)
 })
 
 test('a public URL uses favicon.so as the listing logo, not an og image host', () => {
@@ -716,8 +720,8 @@ test('owner cookie verifies only the signed visitor token', async () => {
 
 test('public stats expose only board facts and hide owner tokens', () => {
   const stats = buildPublicStats({
-    nowIso: '2026-08-21T02:00:00.000Z',
-    listings: [listing(), listing({ id: 'listing_2', displayName: 'other.com', principalPaidCents: 4_000, settledAt: '2026-08-21T01:00:00.000Z' })],
+    nowIso: '2026-08-21T00:00:00.000Z',
+    listings: [listing(), listing({ id: 'listing_2', displayName: 'other.com', principalPaidCents: 4_000, settledAt: '2026-08-21T00:01:00.000Z' })],
     takeover: null,
     takeoverDisplay: null,
     visitorsOnline: 12,

@@ -6,9 +6,9 @@ Youbid is a public paid leaderboard at youbid.lol. A visitor chooses an absolute
 
 ## Current behavior
 
-- The home page shows the first-place amount, a default bid of first place plus one dollar, live projected rank, pagination of 50 listings per page, and a three-hour first-page takeover whose price starts at four times current first place after the last takeover ends and falls to 1.2× over 24 hours.
-- Hovering or focusing a leaderboard row reveals a coral pill: `claim this rank for $N`, where N is that row’s current decayed amount plus one dollar. The pill sets the same global bid field and continues the existing identity and checkout flow. Mouse leave hides it. Keyboard users reach it through focus-within.
-- Each listing shows the date it will drop off the board. That date is the rank key. A listing below the $2 floor is gone; leaving writes nothing.
+- The home page shows the first-place amount, a default bid of first place plus fifty cents, live projected rank, pagination of 50 listings per page, and a three-hour first-page takeover whose price starts at four times current first place after the last takeover ends and falls to 1.2× over 24 hours.
+- Hovering or focusing a leaderboard row reveals a coral pill: `claim this rank for $N`, where N is that row’s current decayed amount plus fifty cents. The pill sets the same global bid field and continues the existing identity and checkout flow. Mouse leave hides it. Keyboard users reach it through focus-within.
+- Each listing shows the date it will drop off the board. That date is the rank key. A listing below the $0.50 floor is gone; leaving writes nothing.
 - Identity is a public URL or X handle (`@name`, `name`, `x.com/name`, `twitter.com/name`). Query strings are stripped. Invite hosts are rejected. A URL scrape prefills title, description, and favicon when it can. Missing name or description must be filled before checkout. Handles are parsed but not fetched from X; the visitor supplies title and description. That copy is stored on the intent and written onto the listing at settlement.
 - Checkout reserves a D1 intent before any provider call. Creating or confirming checkout never changes the board.
 - Only a verified, idempotent paid webhook — or the local mock settlement that uses the same planner — publishes or raises a listing.
@@ -35,7 +35,7 @@ Youbid is a public paid leaderboard at youbid.lol. A visitor chooses an absolute
 
 ## Product constraints
 
-- Amounts are integer cents, displayed as whole USD, minimum $2, step $1.
+- Amounts are integer cents, displayed as USD, minimum $0.50, step $0.50. Half-dollar amounts show cents; whole dollars do not.
 - Outbound targets open as sponsored placements.
 - The mobile layout keeps the same interaction order without horizontal overflow.
 - Remote D1 `youbid-lol` (`5fc1f229-ee89-42c9-8d44-fe7af9c0d15a`) is live. The Worker is deployed on `youbid.lol/*` and `https://youbid-lol.gtfx0209.workers.dev`. Stripe and Turnstile remain unset until test-mode keys are installed.

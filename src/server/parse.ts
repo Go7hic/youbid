@@ -1,4 +1,4 @@
-import { dollarsToCents, MINIMUM_BID_CENTS } from '../domain/money.ts'
+import { dollarsToCents, isValidBidCents } from '../domain/money.ts'
 import type { ParsedCheckoutBody, ProductionBoundaryResult } from './contracts.ts'
 
 export function parseCheckoutBody(raw: unknown): ProductionBoundaryResult<ParsedCheckoutBody> {
@@ -17,8 +17,8 @@ export function parseCheckoutBody(raw: unknown): ProductionBoundaryResult<Parsed
       : typeof body.amountDollars === 'number'
         ? dollarsToCents(body.amountDollars)
         : Number.NaN
-  if (!Number.isInteger(amountCents) || amountCents < MINIMUM_BID_CENTS) {
-    return { ok: false, status: 400, message: 'Bid a whole-dollar amount of at least $2.' }
+  if (!isValidBidCents(amountCents)) {
+    return { ok: false, status: 400, message: 'Bid in $0.50 steps, at least $0.50.' }
   }
 
   return {

@@ -1,6 +1,6 @@
 import { listingStanding } from './decay.ts'
 import type { ProductIdentity } from './identity.ts'
-import { MINIMUM_BID_CENTS, takeoverIdleMs, takeoverPrice } from './money.ts'
+import { isValidBidCents, takeoverIdleMs, takeoverPrice } from './money.ts'
 import { canRaiseListing } from './owner.ts'
 import {
   intentIsExpired,
@@ -44,8 +44,8 @@ export function planReserveCheckout(
   snapshot: ReservationSnapshot,
   ids: { intentId: string; expiresAt: string },
 ): ReservationPlan {
-  if (snapshot.targetAmountCents < MINIMUM_BID_CENTS || snapshot.targetAmountCents % 100 !== 0) {
-    return { kind: 'reject', status: 400, message: 'Bid a whole-dollar amount of at least $2.' }
+  if (!isValidBidCents(snapshot.targetAmountCents)) {
+    return { kind: 'reject', status: 400, message: 'Bid in $0.50 steps, at least $0.50.' }
   }
 
   if (snapshot.kind === 'takeover') {
