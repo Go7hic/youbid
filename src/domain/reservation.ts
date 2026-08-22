@@ -45,7 +45,7 @@ export function planReserveCheckout(
   ids: { intentId: string; expiresAt: string },
 ): ReservationPlan {
   if (!isValidBidCents(snapshot.targetAmountCents)) {
-    return { kind: 'reject', status: 400, message: 'Bid in $0.50 steps, at least $0.50.' }
+    return { kind: 'reject', status: 400, message: 'Bid in whole dollars, at least $1.' }
   }
 
   if (snapshot.kind === 'takeover') {

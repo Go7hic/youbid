@@ -1,6 +1,8 @@
 export const CENTS_PER_DOLLAR = 100
-export const MINIMUM_BID_CENTS = 50
-export const BID_STEP_CENTS = 50
+// Rank drop-off timestamps were written against this floor. Changing it
+// without rewriting listings.drops_off_at makes every live amount lie.
+export const MINIMUM_BID_CENTS = 100
+export const BID_STEP_CENTS = 100
 export const TAKEOVER_OPEN_MULTIPLE = 4
 export const TAKEOVER_FLOOR_NUMERATOR = 6
 export const TAKEOVER_FLOOR_DENOMINATOR = 5

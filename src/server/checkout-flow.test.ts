@@ -35,8 +35,9 @@ test('checkout body carries listing metadata when supplied', () => {
   assert.equal(parsed.value.title, 'Youbid')
   assert.equal(parsed.value.description, 'Paid leaderboard')
   assert.equal(parsed.value.imageUrl, 'https://example.com/a.png')
-  assert.equal(parseCheckoutBody({ requestId: 'req_3', amountCents: 50, identity: 'https://example.com' }).ok, true)
-  assert.equal(parseCheckoutBody({ requestId: 'req_4', amountCents: 51, identity: 'https://example.com' }).ok, false)
+  assert.equal(parseCheckoutBody({ requestId: 'req_3', amountCents: 100, identity: 'https://example.com' }).ok, true)
+  assert.equal(parseCheckoutBody({ requestId: 'req_4', amountCents: 50, identity: 'https://example.com' }).ok, false)
+  assert.equal(parseCheckoutBody({ requestId: 'req_5', amountCents: 150, identity: 'https://example.com' }).ok, false)
 })
 
 test('only a duplicate webhook receipt counts as a replay', () => {

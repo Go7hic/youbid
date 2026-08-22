@@ -75,10 +75,10 @@ function intent(overrides: Partial<IntentRecord> = {}): IntentRecord {
 
 test('money stays in integer cents', () => {
   assert.equal(dollarsToCents(10_001), 1_000_100)
-  assert.equal(dollarsToCents(0.5), 50)
-  assert.equal(amountToClaim(310_000), 310_050)
-  assert.equal(amountToClaim(50), 100)
-  assert.equal(formatUsd(50), '$0.50')
+  assert.equal(dollarsToCents(0.5), 100)
+  assert.equal(amountToClaim(310_000), 310_100)
+  assert.equal(amountToClaim(100), 200)
+  assert.equal(formatUsd(100), '$1')
   assert.equal(formatUsd(200), '$2')
 })
 
@@ -89,7 +89,7 @@ test('a takeover opens at 4x and falls to 1.2x over a day', () => {
   assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS / 2), 26_000)
   assert.equal(takeoverPrice(leader, TAKEOVER_FALL_MS * 2), 12_000)
   assert.ok(takeoverPrice(leader, TAKEOVER_FALL_MS / 4) > takeoverPrice(leader, TAKEOVER_FALL_MS / 2))
-  assert.equal(takeoverPrice(0, 0), 50)
+  assert.equal(takeoverPrice(0, 0), 100)
   assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', null), 0)
   assert.equal(takeoverIdleMs('2026-08-21T12:00:00.000Z', '2026-08-21T06:00:00.000Z'), 6 * 60 * 60 * 1000)
 })
@@ -126,7 +126,7 @@ test('decayed balance falls and drop-off order matches live balance order', () =
   assert.ok(next > poorer)
   assert.ok(next > now)
   assert.equal(DAILY_DECAY, 0.97)
-  assert.equal(DECAY_FLOOR_CENTS, 50)
+  assert.equal(DECAY_FLOOR_CENTS, 100)
 })
 
 test('a public URL uses favicon.so as the listing logo, not an og image host', () => {

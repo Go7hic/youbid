@@ -271,7 +271,7 @@ function Home() {
             <button
               className="step-button"
               type="button"
-              aria-label="Decrease bid by fifty cents"
+              aria-label="Decrease bid by one dollar"
               onClick={() => setAmountCents((amount) => Math.max(MINIMUM_BID_CENTS, amount - BID_STEP_CENTS))}
             >
               −
@@ -280,7 +280,7 @@ function Home() {
             <button
               className="step-button"
               type="button"
-              aria-label="Increase bid by fifty cents"
+              aria-label="Increase bid by one dollar"
               onClick={() => setAmountCents((amount) => amount + BID_STEP_CENTS)}
             >
               +

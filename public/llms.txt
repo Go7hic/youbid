@@ -12,8 +12,8 @@
 
 ## How ranking works
 
-- Bids are $0.50 minimum, in $0.50 steps. Amounts are stored as integer cents.
-- Every live amount decays 3% a day from the moment its payment settled. A listing leaves the board when it falls below the $0.50 floor.
+- Bids are $1 minimum, in $1 steps. Amounts are stored as integer cents.
+- Every live amount decays 3% a day from the moment its payment settled. A listing leaves the board when it falls below the $1 floor.
 - Rank is current balance, then whoever settled first, then a stable id. Paying more, more recently, ranks higher.
 - Raising a listing costs the difference between the target and that listing's current decayed amount, not its historical total.
 - Only the visitor who first paid a listing can raise it, and only while it is still on the board.

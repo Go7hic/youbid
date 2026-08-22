@@ -2,7 +2,7 @@
 
 # Youbid
 
-Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a bid of at least $0.50, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by **current** balance. Every live amount falls 3% a day and drops off below $0.50. Creating checkout never changes the board. Only a verified paid webhook does.
+Youbid is a paid public leaderboard at [youbid.lol](https://youbid.lol). A visitor picks a bid of at least $1, submits a product URL or X handle, pays through hosted Stripe Checkout, and ranks by **current** balance. Every live amount falls 3% a day and drops off below $1. Creating checkout never changes the board. Only a verified paid webhook does.
 
 The product idea and board layout take cues from [outbid.lol](http://outbid.lol/). Youbid is a separate implementation.
 

@@ -18,7 +18,7 @@ export function parseCheckoutBody(raw: unknown): ProductionBoundaryResult<Parsed
         ? dollarsToCents(body.amountDollars)
         : Number.NaN
   if (!isValidBidCents(amountCents)) {
-    return { ok: false, status: 400, message: 'Bid in $0.50 steps, at least $0.50.' }
+    return { ok: false, status: 400, message: 'Bid in whole dollars, at least $1.' }
   }
 
   return {
