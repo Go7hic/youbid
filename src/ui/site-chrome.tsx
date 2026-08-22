@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 export function SiteHeader(input: {
   visitorsOnline: number
-  visitorsLastHour: number
+  visitorsLast24h: number
 }) {
   return (
     <header className="site-header">
@@ -21,7 +21,7 @@ export function SiteHeader(input: {
       <div className="live-pill" aria-live="polite">
         <span className="live-dot" />
         <strong>{input.visitorsOnline.toLocaleString()} visitors online</strong>
-        <span>· {input.visitorsLastHour.toLocaleString()} in the last hour · </span>
+        <span>· {input.visitorsLast24h.toLocaleString()} in the Last 24 hours · </span>
         <Link className="stats-link" to="/stats" target="_blank" rel="noreferrer">
           see stats →
         </Link>

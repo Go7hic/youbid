@@ -8,7 +8,7 @@ import { SiteFooter, SiteHeader } from '../ui/site-chrome.tsx'
 
 const loadRules = createServerFn({ method: 'GET' }).handler(async () => {
   const stats = await loadPublicStats(database(), new Date())
-  return { visitorsOnline: stats.visitorsOnline, visitorsLastHour: stats.visitorsLastHour }
+  return { visitorsOnline: stats.visitorsOnline, visitorsLast24h: stats.visitorsLast24h }
 })
 
 export const Route = createFileRoute('/rules')({
@@ -30,10 +30,10 @@ export const Route = createFileRoute('/rules')({
 })
 
 function RulesPage() {
-  const { visitorsOnline, visitorsLastHour } = Route.useLoaderData()
+  const { visitorsOnline, visitorsLast24h } = Route.useLoaderData()
   return (
     <main className="site-shell">
-      <SiteHeader visitorsOnline={visitorsOnline} visitorsLastHour={visitorsLastHour} />
+      <SiteHeader visitorsOnline={visitorsOnline} visitorsLast24h={visitorsLast24h} />
       <article className="page-panel" aria-labelledby="rules-heading">
         <p className="page-kicker">How Youbid works</p>
         <h1 id="rules-heading">{RULES_TITLE}</h1>

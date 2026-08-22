@@ -15,7 +15,7 @@ const loadReceiptPage = createServerFn({ method: 'GET' })
     const now = new Date()
     const receipt = await loadReceipt(db, intentId, now.toISOString())
     const stats = await loadPublicStats(db, now)
-    return { receipt, visitorsOnline: stats.visitorsOnline, visitorsLastHour: stats.visitorsLastHour }
+    return { receipt, visitorsOnline: stats.visitorsOnline, visitorsLast24h: stats.visitorsLast24h }
   })
 
 export const Route = createFileRoute('/receipts/$intentId')({
@@ -24,7 +24,7 @@ export const Route = createFileRoute('/receipts/$intentId')({
 })
 
 function ReceiptPage() {
-  const { receipt, visitorsOnline, visitorsLastHour } = Route.useLoaderData()
+  const { receipt, visitorsOnline, visitorsLast24h } = Route.useLoaderData()
   const router = useRouter()
 
   useEffect(() => {
@@ -37,7 +37,7 @@ function ReceiptPage() {
 
   return (
     <main className="site-shell">
-      <SiteHeader visitorsOnline={visitorsOnline} visitorsLastHour={visitorsLastHour} />
+      <SiteHeader visitorsOnline={visitorsOnline} visitorsLast24h={visitorsLast24h} />
       <section className="page-panel receipt-panel" aria-labelledby="receipt-heading">
         {receipt ? <ReceiptBody receipt={receipt} /> : <MissingReceipt />}
       </section>

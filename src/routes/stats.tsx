@@ -32,7 +32,7 @@ function StatsPage() {
 
   return (
     <main className="site-shell">
-      <SiteHeader visitorsOnline={stats.visitorsOnline} visitorsLastHour={stats.visitorsLastHour} />
+      <SiteHeader visitorsOnline={stats.visitorsOnline} visitorsLast24h={stats.visitorsLast24h} />
       <section className="page-panel" aria-labelledby="stats-heading">
         <p className="page-kicker">Live</p>
         <h1 id="stats-heading">Youbid stats</h1>

@@ -39,7 +39,7 @@ const loadHome = createServerFn({ method: 'GET' }).handler(async () => {
     nowIso: now.toISOString(),
     checkout: publicCheckoutConfig(),
     visitorsOnline: stats.visitorsOnline,
-    visitorsLastHour: stats.visitorsLastHour,
+    visitorsLast24h: stats.visitorsLast24h,
   }
 })
 
@@ -257,7 +257,7 @@ function Home() {
 
   return (
     <main className="site-shell">
-      <SiteHeader visitorsOnline={data.visitorsOnline} visitorsLastHour={data.visitorsLastHour} />
+      <SiteHeader visitorsOnline={data.visitorsOnline} visitorsLast24h={data.visitorsLast24h} />
 
       <section className="intro" id="top">
         <p className="tagline">
