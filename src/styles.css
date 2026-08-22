@@ -296,7 +296,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   align-items: center;
   justify-content: center;
   gap: 12px;
-  max-width: 666px;
+  max-width: 864px;
   margin: 14px auto 12px;
   padding: 8px 12px;
   border: 1px solid #f0d8cf;
